@@ -18,12 +18,15 @@ namespace TaskbarCat.App;
 ///
 /// --selftest-stimulus=feed,pet fires menu actions on a timer so the reaction path can
 /// be exercised without a mouse.
+///
+/// --selftest-startup=on|off drives the "Start with Windows" toggle without the tray menu,
+/// which cannot be clicked headlessly.
 /// </summary>
 internal static class SelfTest
 {
     public const string DefaultReportPath = @"C:\dev\TaskbarCat\artifacts\selftest.txt";
 
-    public static void Arm(Application app, CatWindow window, CatController controller, string[] args)
+    public static void Arm(Application app, CatWindow window, CatController controller, TrayIconService tray, string[] args)
     {
         double seconds = 3.0;
         string path = DefaultReportPath;
@@ -35,6 +38,11 @@ internal static class SelfTest
                 double.TryParse(arg["--selftest-seconds=".Length..], out seconds);
             else if (arg.StartsWith("--selftest-out=", StringComparison.OrdinalIgnoreCase))
                 path = arg["--selftest-out=".Length..];
+            else if (arg.StartsWith("--selftest-startup=", StringComparison.OrdinalIgnoreCase))
+            {
+                var want = arg["--selftest-startup=".Length..].Trim();
+                StartupService.SetEnabled(want.Equals("on", StringComparison.OrdinalIgnoreCase));
+            }
             else if (arg.StartsWith("--selftest-stimulus=", StringComparison.OrdinalIgnoreCase))
             {
                 foreach (var name in arg["--selftest-stimulus=".Length..].Split(',', StringSplitOptions.RemoveEmptyEntries))
@@ -82,13 +90,13 @@ internal static class SelfTest
         timer.Tick += (_, _) =>
         {
             timer.Stop();
-            try { Report(window, controller, trace, path); }
+            try { Report(window, controller, tray, trace, path); }
             finally { app.Shutdown(); }
         };
         timer.Start();
     }
 
-    private static void Report(CatWindow window, CatController controller, List<string> trace, string path)
+    private static void Report(CatWindow window, CatController controller, TrayIconService tray, List<string> trace, string path)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"utc={DateTime.UtcNow:O}");
@@ -119,6 +127,10 @@ internal static class SelfTest
         sb.AppendLine($"needs.affection={controller.Needs.Affection:F1}");
         sb.AppendLine($"needs.tiredness={controller.Needs.Tiredness:F1}");
         sb.AppendLine($"settings.path={controller.SettingsPath}");
+        sb.AppendLine($"tray.icon={tray.IconSource}");
+        sb.AppendLine($"startup.supported={StartupService.IsSupported}");
+        sb.AppendLine($"startup.enabled={StartupService.IsEnabled()}");
+        sb.AppendLine($"startup.exe={StartupService.ExePath}");
 
         sb.AppendLine($"trace.count={trace.Count}");
         foreach (var line in trace.TakeLast(40)) sb.AppendLine("  " + line);

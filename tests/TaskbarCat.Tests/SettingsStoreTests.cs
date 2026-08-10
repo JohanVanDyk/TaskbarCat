@@ -49,6 +49,47 @@ public class SettingsStoreTests : IDisposable
     }
 
     [Fact]
+    public void FileFromAFutureBuild_KeepsTheCat_InsteadOfResettingIt()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(File1, """
+            { "SchemaVersion": 99, "Name": "Mango", "Fullness": 12, "AlongRail": 0.9, "UnknownFutureField": true }
+            """);
+
+        var loaded = new SettingsStore(File1).Load();
+
+        Assert.Equal("Mango", loaded.Name);
+        Assert.Equal(12, loaded.ToNeeds().Fullness, 3);
+        Assert.Equal(99, loaded.SchemaVersion);
+    }
+
+    [Fact]
+    public void FileWithNoVersion_IsAdoptedAtTheCurrentSchema()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(File1, """{ "Name": "Mango", "Fullness": 33 }""");
+
+        var loaded = new SettingsStore(File1).Load();
+
+        Assert.Equal(Settings.CurrentSchemaVersion, loaded.SchemaVersion);
+        Assert.Equal(33, loaded.ToNeeds().Fullness, 3);
+    }
+
+    [Fact]
+    public void HandEditedOutOfRangeValues_AreClamped()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(File1, """{ "Fullness": 9999, "Tiredness": -50, "AlongRail": 4.2, "Name": "  " }""");
+
+        var loaded = new SettingsStore(File1).Load();
+
+        Assert.Equal(100, loaded.ToNeeds().Fullness, 3);
+        Assert.Equal(0, loaded.ToNeeds().Tiredness, 3);
+        Assert.Equal(1.0, loaded.AlongRail, 3);
+        Assert.Equal("Cat", loaded.Name);
+    }
+
+    [Fact]
     public void Save_OverExistingFile_Replaces_NotAppends()
     {
         var store = new SettingsStore(File1);

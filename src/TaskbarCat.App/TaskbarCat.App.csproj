@@ -17,6 +17,26 @@
     <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
     <RootNamespace>TaskbarCat.App</RootNamespace>
     <AssemblyName>TaskbarCat</AssemblyName>
+    <ApplicationIcon>..\..\assets\app.ico</ApplicationIcon>
+    <Version>0.2.0</Version>
+    <Product>Taskbar Cat</Product>
+    <!-- Shows in the exe's Properties dialog and, more usefully, in Task Manager, where an
+         unnamed WinExe is indistinguishable from malware. -->
+    <FileDescription>Taskbar Cat</FileDescription>
+  </PropertyGroup>
+
+  <!-- Publish shape. Self-contained so the download runs on a machine with no .NET, single-file
+       so autostart points at one exe that cannot be half-deleted. Trimming stays OFF: WPF is not
+       trim-safe and silently drops types it cannot see through reflection.
+       Assets stay loose beside the exe (the single-file bundler does not embed Content), so the
+       unit of distribution is the publish FOLDER — see tools/publish.ps1, which zips it. -->
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -26,6 +46,10 @@
   <ItemGroup>
     <Content Include="..\..\assets\**\*.*" Link="assets\%(RecursiveDir)%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <!-- Publish needs saying explicitly. The build copies these on CopyToOutputDirectory
+           alone, but the file named by ApplicationIcon is dropped from the publish set (it is
+           already compiled into the exe), which silently shipped a drop with no tray icon. -->
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
 

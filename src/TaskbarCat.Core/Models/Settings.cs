@@ -6,7 +6,11 @@ namespace TaskbarCat.Models;
 /// <summary>Persisted cat state. Schema-versioned so a future shape change can migrate.</summary>
 public sealed class Settings
 {
-    public int SchemaVersion { get; set; } = 1;
+    /// <summary>Schema the running build writes. Bump when the shape changes, and add a
+    /// case to <see cref="SettingsStore.Migrate"/> in the same commit.</summary>
+    public const int CurrentSchemaVersion = 1;
+
+    public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
     public string Name { get; set; } = "Cat";
     public string ColorPreset { get; set; } = "orange_white";
@@ -74,13 +78,57 @@ public sealed class SettingsStore
         {
             if (!File.Exists(Path)) return new Settings();
             var json = File.ReadAllText(Path);
-            return JsonSerializer.Deserialize<Settings>(json, Options) ?? new Settings();
+            return Migrate(JsonSerializer.Deserialize<Settings>(json, Options) ?? new Settings());
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
             // A corrupt or unreadable file must not stop the cat from existing.
             return new Settings();
         }
+    }
+
+    /// <summary>
+    /// Brings a loaded file up to <see cref="Settings.CurrentSchemaVersion"/>.
+    ///
+    /// Two failure modes this exists to stop. An OLDER file must be upgraded field by field,
+    /// not discarded — the user's cat is the only thing in here worth keeping. A NEWER file
+    /// (they ran a beta, then rolled back) must be read for what it does understand and left
+    /// alone otherwise; the alternative is silently resetting a cat someone has fed for weeks.
+    ///
+    /// Values are clamped regardless of version: the file is plain JSON in %APPDATA% and
+    /// people edit it.
+    /// </summary>
+    internal static Settings Migrate(Settings s)
+    {
+        switch (s.SchemaVersion)
+        {
+            case <= 0:
+                // Pre-versioning or hand-stripped. Field names have not changed, so what
+                // deserialised is usable as-is; defaults filled the rest.
+                s.SchemaVersion = Settings.CurrentSchemaVersion;
+                break;
+
+            case Settings.CurrentSchemaVersion:
+                break;
+
+            // case 1: migrate v1 -> v2 here when the shape next changes, then fall through.
+
+            default:
+                // From the future. Keep the parsed values, keep the higher version number so a
+                // re-run of the newer build still recognises its own file, and write nothing new.
+                break;
+        }
+
+        s.Fullness = Needs.Clamp(s.Fullness);
+        s.Cleanliness = Needs.Clamp(s.Cleanliness);
+        s.Affection = Needs.Clamp(s.Affection);
+        s.Weight = Needs.Clamp(s.Weight);
+        s.Tiredness = Needs.Clamp(s.Tiredness);
+        s.AlongRail = Math.Clamp(s.AlongRail, 0, 1);
+        if (string.IsNullOrWhiteSpace(s.ColorPreset)) s.ColorPreset = "orange_white";
+        if (string.IsNullOrWhiteSpace(s.Name)) s.Name = "Cat";
+
+        return s;
     }
 
     public void Save(Settings settings)

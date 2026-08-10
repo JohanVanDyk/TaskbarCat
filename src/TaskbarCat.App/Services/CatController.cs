@@ -87,12 +87,14 @@ internal sealed class CatController : IDisposable
     private void Tick()
     {
         var now = DateTime.UtcNow;
-        var dt = now - _lastTick;
+        var raw = now - _lastTick;
         _lastTick = now;
 
-        // A suspended/resumed machine can report an enormous delta; clamp it so the cat
-        // does not teleport or burn through a whole clip in one frame.
-        if (dt > TimeSpan.FromSeconds(1)) dt = TimeSpan.FromSeconds(1);
+        // A suspended/resumed machine reports an enormous delta. Motion and animation get a
+        // clamped slice so the cat does not teleport; the needs meters get the rest as
+        // away-time, so a laptop shut overnight wakes a hungry cat rather than a fresh one.
+        var (dt, away) = TickBudget.For(raw);
+        if (away > TimeSpan.Zero) _sim.ApplyOffline(_needs, away);
 
         _engine.Tick(dt);
 

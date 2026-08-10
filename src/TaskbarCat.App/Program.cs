@@ -14,6 +14,13 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        // One cat per user session. Autostart makes a second instance easy to trigger — log on,
+        // then launch it by hand — and two instances fight over settings.json, each overwriting
+        // the other's needs every 20s. Local\ scopes the mutex to the session so Fast User
+        // Switching still gets a cat each.
+        using var single = new Mutex(initiallyOwned: true, @"Local\TaskbarCat.SingleInstance", out bool isFirst);
+        if (!isFirst) return 0;
+
         var assets = Path.Combine(AppContext.BaseDirectory, "assets");
 
         var store = new SettingsStore();
@@ -47,6 +54,7 @@ internal static class Program
         });
 
         using var tray = new TrayIconService(
+            assets,
             onExit: () => { controller.Dispose(); app.Shutdown(); },
             onReposition: () => window.Reposition());
 
@@ -54,7 +62,7 @@ internal static class Program
         app.SessionEnding += (_, _) => controller.Persist();
 
         if (args.Contains("--selftest"))
-            SelfTest.Arm(app, window, controller, args);
+            SelfTest.Arm(app, window, controller, tray, args);
 
         int code = app.Run();
         controller.Dispose();

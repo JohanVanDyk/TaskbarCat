@@ -86,4 +86,18 @@ internal static class Win32
     internal static extern bool SystemParametersInfo(uint uiAction, uint uiParam, ref RECT pvParam, uint fWinIni);
 
     internal const uint SPI_GETWORKAREA = 0x0030;
+
+    // ---- icons ----
+
+    /// <summary>
+    /// Pulls icon frames straight out of an exe's own resources. Used for the tray icon so it
+    /// comes from the single embedded icon group rather than a loose file that can be deleted,
+    /// or dropped by a publish step, leaving the app unquittable.
+    /// </summary>
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, EntryPoint = "ExtractIconExW")]
+    internal static extern int ExtractIconEx(string lpszFile, int nIconIndex, IntPtr[]? phiconLarge, IntPtr[]? phiconSmall, int nIcons);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool DestroyIcon(IntPtr hIcon);
 }
