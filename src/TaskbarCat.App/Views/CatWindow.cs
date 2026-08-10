@@ -72,8 +72,8 @@ internal sealed class CatWindow : Window
         _image.Source = _clip.Frames[0];
         Content = _image;
 
-        MouseLeftButtonUp += (_, _) => CatClicked?.Invoke();
-        MouseRightButtonUp += (_, _) => CatClicked?.Invoke();
+        MouseLeftButtonUp += (_, _) => { ClickCount++; CatClicked?.Invoke(); };
+        MouseRightButtonUp += (_, _) => { ClickCount++; CatClicked?.Invoke(); };
     }
 
     /// <summary>Raised when the travelable rail length changes (taskbar or DPI change).</summary>
@@ -122,6 +122,16 @@ internal sealed class CatWindow : Window
     internal string LastPlacement { get; private set; } = "(never)";
     internal int RepositionCount { get; private set; }
     internal string CurrentClipId => _clip.Id;
+
+    /// <summary>
+    /// Clicks that reached WPF, menus opened, and raw button messages the window was handed.
+    /// Kept past the bug they were added for: when the hit test is wrong the window receives
+    /// WM_NCHITTEST and NOTHING else, so raw.buttonmsgs=0 in a self-test report is the
+    /// signature of the cat going click-through again.
+    /// </summary>
+    internal int ClickCount { get; private set; }
+    internal int MenuOpenCount { get; private set; }
+    internal int RawButtonMessages { get; private set; }
 
     protected override void OnSourceInitialized(EventArgs e)
     {
@@ -191,6 +201,7 @@ internal sealed class CatWindow : Window
             ("close", "Close (quit)", null),
         };
 
+        MenuOpenCount++;
         _menu = new RadialMenu(_assetsRoot, items);
         _menu.Chosen += id => MenuChosen?.Invoke(id);
         _menu.Closed += (_, _) => _menu = null;
@@ -232,6 +243,10 @@ internal sealed class CatWindow : Window
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
+        // Raw button messages, counted before anything else can swallow them. Compared with
+        // ClickCount this says whether a lost click died in Win32 or inside WPF's input stack.
+        if (msg is 0x0201 or 0x0202 or 0x00A1 or 0x00A2) RawButtonMessages++;
+
         _taskbar?.WndProc(hwnd, msg, wParam, lParam, ref handled);
 
         if (msg == Win32.WM_DPICHANGED)
@@ -258,8 +273,12 @@ internal sealed class CatWindow : Window
         int px = unchecked((short)(lParam.ToInt64() & 0xFFFF));
         int py = unchecked((short)((lParam.ToInt64() >> 16) & 0xFFFF));
 
-        var dipScreen = _source.CompositionTarget.TransformFromDevice.Transform(new Point(px, py));
-        var local = PointFromScreen(dipScreen);
+        // PointFromScreen already takes DEVICE pixels and returns local DIPs. Converting with
+        // TransformFromDevice first and then calling it applied the DPI divide twice, so at
+        // 125% every hit test landed at 0.8x of the real point — up and left, in the sprite's
+        // transparent corner. The window then answered HTTRANSPARENT for its own body and the
+        // system routed every click to whatever was behind it: clicking the cat did nothing.
+        var local = PointFromScreen(new Point(px, py));
 
         // Window DIP size equals the frame's pixel size by construction (we size the
         // window to frame*scale physical), so local DIPs index the alpha mask directly.

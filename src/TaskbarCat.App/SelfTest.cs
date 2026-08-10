@@ -138,6 +138,9 @@ internal static class SelfTest
         sb.AppendLine($"dpi.scale={window.Scale}");
         sb.AppendLine($"screen.physical={window.ScreenPhysicalWidth}x{window.ScreenPhysicalHeight}");
         sb.AppendLine($"reposition.count={window.RepositionCount}");
+        sb.AppendLine($"clicks.received={window.ClickCount}");
+        sb.AppendLine($"menu.opened={window.MenuOpenCount}");
+        sb.AppendLine($"raw.buttonmsgs={window.RawButtonMessages}");
         sb.AppendLine($"reposition.last={window.LastPlacement}");
 
         sb.AppendLine($"cat.name={controller.Name}");

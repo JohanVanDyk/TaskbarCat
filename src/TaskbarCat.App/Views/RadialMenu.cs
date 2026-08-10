@@ -7,6 +7,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using TaskbarCat.Models;
 
 using Brushes = System.Windows.Media.Brushes;
@@ -35,6 +36,7 @@ internal sealed class RadialMenu : Window
     private readonly Canvas _canvas = new();
     private readonly double _radius;
     private bool _closing;
+    private bool _armed;
 
     public RadialMenu(string assetsRoot, IReadOnlyList<(string Id, string Label, Stimulus? Stimulus)> items)
     {
@@ -68,7 +70,18 @@ internal sealed class RadialMenu : Window
         // deactivates the window, which re-entered this handler and called Close() again
         // — WPF throws "Cannot set Visibility ... while a Window is closing" and the whole
         // app dies. That fired on every single menu selection.
-        Deactivated += (_, _) => { if (!_closing) Close(); };
+        //
+        // _armed is the other half. The click that OPENS this menu is a click on the cat,
+        // which is WS_EX_NOACTIVATE: it cannot take focus, so as that click finishes Windows
+        // hands activation back to whatever app the user was in, and Deactivated fires on a
+        // menu that has been visible for a few milliseconds. Clicking the cat therefore
+        // appeared to do nothing at all — the wheel opened and vanished within one frame.
+        // Ignore deactivation until the menu has had a moment to settle.
+        var arm = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
+        arm.Tick += (_, _) => { arm.Stop(); _armed = true; };
+        arm.Start();
+
+        Deactivated += (_, _) => { if (_armed && !_closing) Close(); };
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape && !_closing) Close(); };
     }
 
