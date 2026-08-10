@@ -21,12 +21,22 @@ namespace TaskbarCat.App;
 ///
 /// --selftest-startup=on|off drives the "Start with Windows" toggle without the tray menu,
 /// which cannot be clicked headlessly.
+///
+/// --selftest-name=, --selftest-coat= and --selftest-customize exercise the Customize panel's
+/// three effects — rename, coat swap, and the dialog itself — without a mouse.
 /// </summary>
 internal static class SelfTest
 {
     public const string DefaultReportPath = @"C:\dev\TaskbarCat\artifacts\selftest.txt";
 
-    public static void Arm(Application app, CatWindow window, CatController controller, TrayIconService tray, string[] args)
+    public static void Arm(
+        Application app,
+        CatWindow window,
+        CatController controller,
+        TrayIconService tray,
+        Action showCustomize,
+        Action<string> setCoat,
+        string[] args)
     {
         double seconds = 3.0;
         string path = DefaultReportPath;
@@ -43,6 +53,10 @@ internal static class SelfTest
                 var want = arg["--selftest-startup=".Length..].Trim();
                 StartupService.SetEnabled(want.Equals("on", StringComparison.OrdinalIgnoreCase));
             }
+            else if (arg.StartsWith("--selftest-name=", StringComparison.OrdinalIgnoreCase))
+                controller.Rename(arg["--selftest-name=".Length..]);
+            else if (arg.StartsWith("--selftest-coat=", StringComparison.OrdinalIgnoreCase))
+                setCoat(arg["--selftest-coat=".Length..].Trim());
             else if (arg.StartsWith("--selftest-stimulus=", StringComparison.OrdinalIgnoreCase))
             {
                 foreach (var name in arg["--selftest-stimulus=".Length..].Split(',', StringSplitOptions.RemoveEmptyEntries))
@@ -60,6 +74,14 @@ internal static class SelfTest
         {
             var open = new DispatcherTimer { Interval = TimeSpan.FromSeconds(Math.Min(3, seconds / 2)) };
             open.Tick += (_, _) => { open.Stop(); window.ShowRadialMenu(); };
+            open.Start();
+        }
+
+        // Same trick for the Customize dialog, so a capture script has something to photograph.
+        if (args.Contains("--selftest-customize"))
+        {
+            var open = new DispatcherTimer { Interval = TimeSpan.FromSeconds(Math.Min(2, seconds / 2)) };
+            open.Tick += (_, _) => { open.Stop(); showCustomize(); };
             open.Start();
         }
 
@@ -118,6 +140,8 @@ internal static class SelfTest
         sb.AppendLine($"reposition.count={window.RepositionCount}");
         sb.AppendLine($"reposition.last={window.LastPlacement}");
 
+        sb.AppendLine($"cat.name={controller.Name}");
+        sb.AppendLine($"cat.preset={controller.PresetId}");
         sb.AppendLine($"cat.action={controller.Action}");
         sb.AppendLine($"cat.mood={controller.Mood}");
         sb.AppendLine($"cat.clip={window.CurrentClipId}");

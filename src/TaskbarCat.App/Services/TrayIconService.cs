@@ -57,6 +57,16 @@ internal sealed class TrayIconService : IDisposable
     /// <summary>Where the icon actually came from: exe / file / stock. Reported by the self-test.</summary>
     public string IconSource { get; }
 
+    /// <summary>
+    /// Puts the cat's name on the tray tooltip. Without this, naming your cat in Customize
+    /// changes nothing you can ever see. NotifyIcon.Text throws above 63 chars.
+    /// </summary>
+    public void SetLabel(string name)
+    {
+        var text = string.IsNullOrWhiteSpace(name) ? "Taskbar Cat" : $"{name.Trim()} — Taskbar Cat";
+        _icon.Text = text.Length <= 63 ? text : text[..63];
+    }
+
     private static (Icon? Icon, string Source) LoadIcon(string assetsDir)
     {
         var exe = Environment.ProcessPath;

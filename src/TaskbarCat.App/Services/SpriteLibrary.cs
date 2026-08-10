@@ -30,22 +30,43 @@ internal sealed class SpriteLibrary
 
     public IReadOnlyDictionary<string, Clip> Clips => _clips;
 
-    public static SpriteLibrary Load(string assetsRoot, string? presetId = null)
+    /// <summary>Id of the preset these clips were sliced from. Survives a swap so the UI can
+    /// show which coat is actually on screen, not which one was last requested.</summary>
+    public string PresetId { get; private set; } = string.Empty;
+
+    private static SpriteManifest ReadManifest(string assetsRoot)
     {
         var manifestPath = Path.Combine(assetsRoot, "sprites.json");
         var json = File.ReadAllText(manifestPath);
-        var manifest = JsonSerializer.Deserialize<SpriteManifest>(json, new JsonSerializerOptions
+        return JsonSerializer.Deserialize<SpriteManifest>(json, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true,
             ReadCommentHandling = JsonCommentHandling.Skip,
         }) ?? throw new InvalidDataException($"Could not parse {manifestPath}");
+    }
+
+    /// <summary>
+    /// The coats on offer, in manifest order. Only those whose sheet directory actually
+    /// exists: the manifest is the design intent, the disk is the truth, and a picker that
+    /// offers a coat with no art produces an invisible cat.
+    /// </summary>
+    public static IReadOnlyList<ColorPreset> LoadPresets(string assetsRoot)
+    {
+        return ReadManifest(assetsRoot).ColorPresets
+            .Where(p => Directory.Exists(Path.Combine(assetsRoot, p.SheetDir.Replace('/', Path.DirectorySeparatorChar))))
+            .ToList();
+    }
+
+    public static SpriteLibrary Load(string assetsRoot, string? presetId = null)
+    {
+        var manifest = ReadManifest(assetsRoot);
 
         var preset = manifest.ColorPresets.FirstOrDefault(p => p.Id == presetId)
                      ?? manifest.ColorPresets.FirstOrDefault(p => p.IsDefault)
                      ?? manifest.ColorPresets.FirstOrDefault()
                      ?? throw new InvalidDataException("sprites.json declares no colour presets.");
 
-        var lib = new SpriteLibrary();
+        var lib = new SpriteLibrary { PresetId = preset.Id };
         foreach (var clip in manifest.Clips)
         {
             var path = Path.Combine(assetsRoot, preset.SheetDir.Replace('/', Path.DirectorySeparatorChar), clip.Sheet);

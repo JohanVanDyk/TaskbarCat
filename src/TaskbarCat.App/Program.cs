@@ -44,25 +44,63 @@ internal static class Program
 
         var controller = new CatController(window, sprites, store, settings);
 
-        window.MenuChosen += id => controller.Send(id switch
+        void Quit()
         {
-            "feed" => Stimulus.Fed,
-            "brush" => Stimulus.Brushed,
-            "pet" => Stimulus.Petted,
-            "play" => Stimulus.PlayToyOffered,
-            _ => Stimulus.Petted,
-        });
+            controller.Dispose();   // stops the clock and persists; safe to call twice
+            app.Shutdown();
+        }
 
         using var tray = new TrayIconService(
             assets,
-            onExit: () => { controller.Dispose(); app.Shutdown(); },
+            onExit: Quit,
             onReposition: () => window.Reposition());
+
+        tray.SetLabel(controller.Name);
+        controller.Renamed += tray.SetLabel;
+
+        void SetCoat(string presetId)
+        {
+            try { controller.SetSprites(SpriteLibrary.Load(assets, presetId)); }
+            catch (Exception ex)
+            {
+                // A coat whose sheets are missing or corrupt leaves the cat as it was.
+                MessageBox.Show($"Could not load the '{presetId}' coat:\n\n{ex.Message}",
+                    "Taskbar Cat", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+
+        CustomizeWindow? customize = null;
+        void ShowCustomize()
+        {
+            // Re-focus the open one rather than stacking dialogs; two of them would fight over
+            // which coat is applied.
+            if (customize is { IsVisible: true }) { customize.Activate(); return; }
+
+            customize = new CustomizeWindow(assets, SpriteLibrary.LoadPresets(assets), controller.Name, controller.PresetId);
+            customize.NameChanged += controller.Rename;
+            customize.PresetChanged += SetCoat;
+            customize.Closed += (_, _) => customize = null;
+            customize.Show();
+        }
+
+        window.MenuChosen += id =>
+        {
+            switch (id)
+            {
+                case "customize": ShowCustomize(); break;
+                case "close": Quit(); break;
+                case "feed": controller.Send(Stimulus.Fed); break;
+                case "brush": controller.Send(Stimulus.Brushed); break;
+                case "pet": controller.Send(Stimulus.Petted); break;
+                case "play": controller.Send(Stimulus.PlayToyOffered); break;
+            }
+        };
 
         // Logoff and shutdown kill the process without OnClosed, so save here too.
         app.SessionEnding += (_, _) => controller.Persist();
 
         if (args.Contains("--selftest"))
-            SelfTest.Arm(app, window, controller, tray, args);
+            SelfTest.Arm(app, window, controller, tray, ShowCustomize, SetCoat, args);
 
         int code = app.Run();
         controller.Dispose();

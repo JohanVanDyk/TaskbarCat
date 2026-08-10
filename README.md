@@ -1,8 +1,12 @@
 # Taskbar Cat
 
 A cat that lives on your Windows taskbar. It sleeps, walks, grooms, gets hungry, and reacts
-when you feed, brush, pet or play with it. Click it for the radial menu; right-click the tray
-icon to reposition, toggle autostart, or quit.
+when you feed, brush, pet or play with it. Click it for the radial menu — Feed, Brush, Pet,
+Play, Customize, Close. Right-click the tray icon to reposition, toggle autostart, or quit.
+
+**Customize** names the cat and picks its coat. Both apply live: the name shows on the tray
+tooltip, and the coat swaps without restarting or interrupting what the cat is doing. Cancel
+or Escape puts both back.
 
 C# / .NET 8, WPF. Windows 10 1607+ (per-monitor DPI), x64.
 
@@ -53,9 +57,14 @@ usual ways to check a GUI are closed off. The app reports on itself instead:
 ```
 
 That runs for N seconds, writes the resolved taskbar rail, DPI scale, window placement, needs,
-tray icon source and the action trace to a file, then exits. Extra flags:
+name, coat, tray icon source and the action trace to a file, then exits. Extra flags:
 `--selftest-stimulus=feed,pet` fires menu actions on a timer, `--selftest-menu` opens the
-radial menu, `--selftest-startup=on|off` drives the autostart toggle.
+radial menu, `--selftest-customize` opens the Customize dialog, `--selftest-name=` and
+`--selftest-coat=` drive what that dialog drives, and `--selftest-startup=on|off` toggles
+autostart.
+
+The radial menu closes as soon as it loses focus, so a capture script has to poll for it
+rather than sleep for a fixed time and shoot once.
 
 `tools/capture_window.ps1` screenshots the cat (`PrintWindow` with
 `PW_RENDERFULLCONTENT` — BitBlt silently skips layered windows), and
@@ -69,5 +78,16 @@ report a bug that is not there.
 
 `assets/sprites.json` is the manifest: clips, frame counts, fps, and the colour presets.
 Sheets are 160x128-per-frame horizontal strips under `assets/cat/<preset>/`.
+
+Only **Orange & White** is drawn art. **Grey & White** and **Blue & White** are derived from it
+by `tools/make_preset.py`, which recolours the saturated coat pixels and leaves the whites,
+outline and eyes alone — replace them with real sheets when there are any. A preset is only
+offered in the picker if its sheet directory actually exists, so dropping a folder in and
+adding a manifest entry is the whole job.
+
+```bash
+python3 tools/make_preset.py tuxedo --name "Tuxedo" --sat 0.05 --val 0.55
+```
+
 `tools/make_icon.py` regenerates `assets/app.ico` from a sprite frame; the icon is compiled
 into the exe and the tray reads it back out of there.

@@ -15,6 +15,18 @@
       "name": "Orange & White",
       "default": true,
       "sheetDir": "cat/orange_white"
+    },
+    {
+      "id": "grey_white",
+      "name": "Grey & White",
+      "sheetDir": "cat/grey_white",
+      "notes": "Derived from orange_white by tools/make_preset.py (coat recoloured, whites and outline untouched). Replace with real art when a sheet lands."
+    },
+    {
+      "id": "blue_white",
+      "name": "Blue & White",
+      "sheetDir": "cat/blue_white",
+      "notes": "Derived from orange_white by tools/make_preset.py. Replace with real art when a sheet lands."
     }
   ],
   "clips": [

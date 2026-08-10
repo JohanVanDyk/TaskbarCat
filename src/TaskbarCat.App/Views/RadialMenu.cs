@@ -29,10 +29,11 @@ namespace TaskbarCat.App.Views;
 /// </summary>
 internal sealed class RadialMenu : Window
 {
-    private const double Radius = 86;
+    private const double MinRadius = 86;
     private const double IconSize = 54;
 
     private readonly Canvas _canvas = new();
+    private readonly double _radius;
     private bool _closing;
 
     public RadialMenu(string assetsRoot, IReadOnlyList<(string Id, string Label, Stimulus? Stimulus)> items)
@@ -48,8 +49,14 @@ internal sealed class RadialMenu : Window
         SizeToContent = SizeToContent.Manual;
         WindowStartupLocation = WindowStartupLocation.Manual;
 
-        Width = Radius * 2 + IconSize + 24;
-        Height = Radius + IconSize + 24;
+        // Grow the wheel with the item count instead of packing icons tighter. Arc length for
+        // n icons across a half-circle is pi*r/(n-1); hold that above one icon plus a gap or
+        // the buttons overlap and the outer ones become unclickable.
+        double needed = IconSize * 1.18 * Math.Max(1, items.Count - 1) / Math.PI;
+        _radius = Math.Max(MinRadius, needed);
+
+        Width = _radius * 2 + IconSize + 24;
+        Height = _radius + IconSize + 24;
         Content = _canvas;
 
         Build(assetsRoot, items);
@@ -90,8 +97,8 @@ internal sealed class RadialMenu : Window
         {
             double t = n == 1 ? 0.5 : i / (double)(n - 1);
             double angle = Math.PI * (1.0 - t);          // pi (left) -> 0 (right)
-            double x = centreX + Math.Cos(angle) * Radius - IconSize / 2;
-            double y = centreY - Math.Sin(angle) * Radius - IconSize / 2;
+            double x = centreX + Math.Cos(angle) * _radius - IconSize / 2;
+            double y = centreY - Math.Sin(angle) * _radius - IconSize / 2;
 
             var button = BuildButton(assetsRoot, items[i].Id, items[i].Label);
             Canvas.SetLeft(button, x);

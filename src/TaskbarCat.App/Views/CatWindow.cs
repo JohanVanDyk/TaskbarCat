@@ -178,12 +178,17 @@ internal sealed class CatWindow : Window
             return;
         }
 
+        // Order is the arc, left to right. The two that are not interactions go on the far
+        // right, away from the four the user reaches for constantly — Close especially, since
+        // a mis-click there costs them the cat.
         var items = new List<(string, string, Stimulus?)>
         {
             ("feed", "Feed", Stimulus.Fed),
             ("brush", "Brush", Stimulus.Brushed),
             ("pet", "Pet", Stimulus.Petted),
             ("play", "Play", Stimulus.PlayToyOffered),
+            ("customize", "Customize", null),
+            ("close", "Close (quit)", null),
         };
 
         _menu = new RadialMenu(_assetsRoot, items);

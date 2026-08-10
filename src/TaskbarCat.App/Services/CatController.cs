@@ -17,7 +17,7 @@ internal sealed class CatController : IDisposable
     private const int SleepFps = 4;
 
     private readonly CatWindow _window;
-    private readonly SpriteLibrary _sprites;
+    private SpriteLibrary _sprites;
     private readonly BehaviourEngine _engine;
     private readonly MotionController _motion;
     private readonly AnimationPlayer _animation;
@@ -81,6 +81,43 @@ internal sealed class CatController : IDisposable
 
     /// <summary>Feeds a user action into the engine. The engine decides how to react.</summary>
     public void Send(Stimulus stimulus) => _engine.Notify(stimulus);
+
+    public string Name => _settings.Name;
+
+    public string PresetId => _sprites.PresetId;
+
+    /// <summary>Raised when the cat is renamed, so the tray label can follow.</summary>
+    public event Action<string>? Renamed;
+
+    public void Rename(string name)
+    {
+        var trimmed = string.IsNullOrWhiteSpace(name) ? "Cat" : name.Trim();
+        if (trimmed == _settings.Name) return;
+
+        _settings.Name = trimmed;
+        Persist();
+        Renamed?.Invoke(trimmed);
+    }
+
+    /// <summary>
+    /// Swaps the coat without restarting. The behaviour engine is untouched — mood, needs and
+    /// the action in flight all carry over, so a sleeping cat stays asleep and simply changes
+    /// colour, which is the whole point of applying the choice live.
+    /// </summary>
+    public void SetSprites(SpriteLibrary sprites)
+    {
+        _sprites = sprites;
+        _settings.ColorPreset = sprites.PresetId;
+
+        // Re-resolve the CURRENT decision against the new library rather than resetting to a
+        // default clip: the old Clip objects hold frames from the old sheets and would keep
+        // rendering the old coat until the next action change, which can be minutes away.
+        var clip = ResolveClip(_engine.Current);
+        _animation.Play(clip);
+        _window.ShowClip(_animation.Clip, _animation.FrameIndex);
+
+        Persist();
+    }
 
     private void OnCatClicked() => _window.ShowRadialMenu();
 

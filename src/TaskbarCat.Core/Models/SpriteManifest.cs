@@ -40,6 +40,9 @@ public sealed class ColorPreset
 
     [JsonPropertyName("default")]
     public bool IsDefault { get; init; }
+
+    /// <summary>Free text — used to mark presets derived by tools/make_preset.py rather than drawn.</summary>
+    public string? Notes { get; init; }
 }
 
 /// <summary>A single animation strip. Nulls fall back to <see cref="ClipDefaults"/>.</summary>
