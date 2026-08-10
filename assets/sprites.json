@@ -1,0 +1,251 @@
+{
+  "$schema": "./sprites.schema.json",
+  "version": 1,
+  "defaults": {
+    "frameWidth": 160,
+    "frameHeight": 128,
+    "fps": 12,
+    "loop": true,
+    "interruptible": true,
+    "layout": "strip"
+  },
+  "colorPresets": [
+    {
+      "id": "orange_white",
+      "name": "Orange & White",
+      "default": true,
+      "sheetDir": "cat/orange_white"
+    }
+  ],
+  "clips": [
+    {
+      "id": "sleep",
+      "sheet": "sleep.png",
+      "frames": 5,
+      "fps": 4,
+      "loop": true,
+      "interruptible": true,
+      "notes": "Lowest-cost clip. Renderer drops the global tick to 4 FPS while this plays."
+    },
+    {
+      "id": "idle_blink",
+      "sheet": "idle_blink.png",
+      "frames": 8,
+      "fps": 8,
+      "loop": true,
+      "interruptible": true
+    },
+    {
+      "id": "sit_look",
+      "sheet": "sit_look.png",
+      "frames": 2,
+      "fps": 8,
+      "loop": true,
+      "interruptible": true
+    },
+    {
+      "id": "loaf",
+      "sheet": "loaf.png",
+      "frames": 3,
+      "fps": 6,
+      "loop": true,
+      "interruptible": true,
+      "notes": "Sheet label was illegible in the spec image (rendered as 'Technical Noants'). Treated as a settled/loaf idle variant. TODO: confirm against the real asset drop before shipping."
+    },
+    {
+      "id": "walk_right",
+      "sheet": "walk_right.png",
+      "frames": 6,
+      "fps": 14,
+      "loop": true,
+      "interruptible": true,
+      "motion": {
+        "pixelsPerFrame": 4,
+        "direction": "right"
+      }
+    },
+    {
+      "id": "walk_left",
+      "sheet": "walk_left.png",
+      "frames": 4,
+      "fps": 14,
+      "loop": true,
+      "interruptible": true,
+      "motion": {
+        "pixelsPerFrame": 4,
+        "direction": "left"
+      }
+    },
+    {
+      "id": "stretch_yawn",
+      "sheet": "stretch_yawn.png",
+      "frames": 1,
+      "fps": 8,
+      "loop": false,
+      "interruptible": false,
+      "notes": "Only one frame survived extraction from the spec screenshot; renders as a static pose until the real asset drop lands."
+    },
+    {
+      "id": "groom",
+      "sheet": "groom.png",
+      "frames": 6,
+      "fps": 10,
+      "loop": true,
+      "interruptible": false
+    },
+    {
+      "id": "play_pounce",
+      "sheet": "play_pounce.png",
+      "frames": 4,
+      "fps": 16,
+      "loop": true,
+      "interruptible": false
+    },
+    {
+      "id": "eat",
+      "sheet": "eat.png",
+      "frames": 5,
+      "fps": 10,
+      "loop": true,
+      "interruptible": false,
+      "prop": {
+        "iconId": "food_bowl",
+        "offsetX": 40,
+        "offsetY": 12
+      }
+    },
+    {
+      "id": "scratch",
+      "sheet": "scratch.png",
+      "frames": 1,
+      "fps": 12,
+      "loop": false,
+      "interruptible": true,
+      "notes": "Only one frame survived extraction from the spec screenshot; renders as a static pose until the real asset drop lands."
+    },
+    {
+      "id": "meow_attention",
+      "sheet": "meow_attention.png",
+      "frames": 3,
+      "fps": 10,
+      "loop": true,
+      "interruptible": false,
+      "bubble": {
+        "id": "meow",
+        "offsetX": 96,
+        "offsetY": -40
+      }
+    },
+    {
+      "id": "happy_hearts",
+      "sheet": "happy_hearts.png",
+      "frames": 2,
+      "fps": 10,
+      "loop": true,
+      "interruptible": false
+    },
+    {
+      "id": "cursor_interaction",
+      "sheet": "cursor_interaction.png",
+      "frames": 2,
+      "fps": 12,
+      "loop": true,
+      "interruptible": true
+    }
+  ],
+  "faces": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "sheet": "faces.png",
+    "layout": "strip",
+    "ids": [
+      "neutral",
+      "happy",
+      "eyes_closed",
+      "wink",
+      "surprised",
+      "angry",
+      "heart_eyes"
+    ]
+  },
+  "bubbles": {
+    "frameWidth": 200,
+    "frameHeight": 80,
+    "sheet": "bubbles.png",
+    "layout": "strip",
+    "ids": [
+      "meow",
+      "meow_loud",
+      "ellipsis",
+      "heart",
+      "food"
+    ]
+  },
+  "uiIcons": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "sheet": "ui_icons.png",
+    "layout": "strip",
+    "ids": [
+      "feed",
+      "brush",
+      "pet",
+      "play",
+      "customize",
+      "close"
+    ]
+  },
+  "statusIcons": {
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "sheet": "status_icons.png",
+    "layout": "strip",
+    "ids": [
+      "hunger",
+      "clean",
+      "affection",
+      "weight",
+      "happy"
+    ]
+  },
+  "accessories": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "sheet": "accessories.png",
+    "layout": "strip",
+    "ids": [
+      "collar_blue",
+      "collar_red",
+      "bell",
+      "bow",
+      "party_hat",
+      "hat"
+    ]
+  },
+  "props": {
+    "frameWidth": 64,
+    "frameHeight": 64,
+    "sheet": "props.png",
+    "layout": "strip",
+    "ids": [
+      "food_bowl",
+      "tuna",
+      "yarn",
+      "mouse",
+      "feather"
+    ]
+  },
+  "effects": [
+    {
+      "id": "icon_knock",
+      "sheet": "icon_knock.png",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "frames": 8,
+      "fps": 12,
+      "loop": false,
+      "notes": "Purely cosmetic overlay. Plays in a transient EffectWindow at a cached taskbar-icon rect; the real icon is never touched and reappears when the clip ends."
+    }
+  ],
+  "sourceNote": "Frames recovered from the spec sheet screenshot by tools/extract_sprites.py; counts reflect what was actually recoverable, not the sheet's printed labels."
+}

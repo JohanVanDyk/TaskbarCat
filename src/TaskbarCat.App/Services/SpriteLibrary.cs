@@ -1,0 +1,113 @@
+using System.IO;
+using System.Text.Json;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using TaskbarCat.Models;
+
+namespace TaskbarCat.App.Services;
+
+/// <summary>One animation clip, sliced and ready to render.</summary>
+internal sealed class Clip
+{
+    public required string Id { get; init; }
+    public required BitmapSource[] Frames { get; init; }
+    /// <summary>Per-frame alpha, one byte per pixel, row-major. Drives the click hit-test.</summary>
+    public required byte[][] AlphaMasks { get; init; }
+    public required int FrameWidth { get; init; }
+    public required int FrameHeight { get; init; }
+    public required int Fps { get; init; }
+    public required bool Loop { get; init; }
+}
+
+/// <summary>
+/// Loads sprites.json and slices each strip into frozen frames. Everything is decoded
+/// once at startup and Freeze()d: no per-frame decoding, no cross-thread affinity, and
+/// the render loop allocates nothing.
+/// </summary>
+internal sealed class SpriteLibrary
+{
+    private readonly Dictionary<string, Clip> _clips = new(StringComparer.OrdinalIgnoreCase);
+
+    public IReadOnlyDictionary<string, Clip> Clips => _clips;
+
+    public static SpriteLibrary Load(string assetsRoot, string? presetId = null)
+    {
+        var manifestPath = Path.Combine(assetsRoot, "sprites.json");
+        var json = File.ReadAllText(manifestPath);
+        var manifest = JsonSerializer.Deserialize<SpriteManifest>(json, new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            ReadCommentHandling = JsonCommentHandling.Skip,
+        }) ?? throw new InvalidDataException($"Could not parse {manifestPath}");
+
+        var preset = manifest.ColorPresets.FirstOrDefault(p => p.Id == presetId)
+                     ?? manifest.ColorPresets.FirstOrDefault(p => p.IsDefault)
+                     ?? manifest.ColorPresets.FirstOrDefault()
+                     ?? throw new InvalidDataException("sprites.json declares no colour presets.");
+
+        var lib = new SpriteLibrary();
+        foreach (var clip in manifest.Clips)
+        {
+            var path = Path.Combine(assetsRoot, preset.SheetDir.Replace('/', Path.DirectorySeparatorChar), clip.Sheet);
+            if (!File.Exists(path)) continue;   // art drop is incremental; skip what is not there yet
+
+            lib._clips[clip.Id] = Slice(clip, manifest.Defaults, path);
+        }
+        return lib;
+    }
+
+    private static Clip Slice(ClipDef def, ClipDefaults defaults, string path)
+    {
+        int fw = def.FrameWidth ?? defaults.FrameWidth;
+        int fh = def.FrameHeight ?? defaults.FrameHeight;
+
+        var sheet = new BitmapImage();
+        sheet.BeginInit();
+        sheet.UriSource = new Uri(path, UriKind.Absolute);
+        sheet.CacheOption = BitmapCacheOption.OnLoad;   // read the file now, then release the handle
+        sheet.EndInit();
+        sheet.Freeze();
+
+        var frames = new BitmapSource[def.Frames];
+        var masks = new byte[def.Frames][];
+
+        for (int i = 0; i < def.Frames; i++)
+        {
+            var crop = new CroppedBitmap(sheet, new System.Windows.Int32Rect(i * fw, 0, fw, fh));
+            crop.Freeze();
+            frames[i] = crop;
+            masks[i] = BuildAlphaMask(crop, fw, fh);
+        }
+
+        return new Clip
+        {
+            Id = def.Id,
+            Frames = frames,
+            AlphaMasks = masks,
+            FrameWidth = fw,
+            FrameHeight = fh,
+            Fps = def.Fps ?? defaults.Fps,
+            Loop = def.Loop ?? defaults.Loop,
+        };
+    }
+
+    /// <summary>
+    /// One byte of alpha per pixel (~16KB for a 128x128 frame). Cheap, and it is what lets
+    /// clicks fall through the transparent corners of the window to whatever is underneath.
+    /// </summary>
+    private static byte[] BuildAlphaMask(BitmapSource frame, int w, int h)
+    {
+        var bgra = new FormatConvertedBitmap(frame, PixelFormats.Bgra32, null, 0);
+        bgra.Freeze();
+
+        int stride = w * 4;
+        var pixels = new byte[stride * h];
+        bgra.CopyPixels(pixels, stride, 0);
+
+        var mask = new byte[w * h];
+        for (int i = 0, p = 3; i < mask.Length; i++, p += 4)
+            mask[i] = pixels[p];
+
+        return mask;
+    }
+}
