@@ -292,6 +292,51 @@ from `Downloads\taskbar_cat_chonk_refs`.
 other two coats, and point the engine at it — `ClipMap.ClipFor` currently reads
 `CatAction.Startled => "zoomies"` and becomes `=> "fright"`. Nothing else changes.
 
+---
+
+## Fifth brief: toy mode art, and chonk parity
+
+Two jobs. **Reference files for both are in `Downloads\taskbar_cat_refs_next`.**
+
+The chonk one matters more than it sounds: 10 of the 16 reachable clips have no drawn chonk
+art, so a level 3 cat playing `zoomies` or `run_right` is a normal cat stretched 36% wide —
+head and eyes included, which is exactly what stretching gets wrong.
+
+### Batch 1 — toy mode (normal weight) → `taskbarcat_toys.zip`
+
+Two of these are NOT cats and use a different frame size. Say so explicitly or they come back
+at 160x128.
+
+| file | frames | frame size |
+|---|---|---|
+| `toy_yarn.png` | 8 | **64 x 64** |
+| `toy_laser.png` | 6 | **64 x 64** |
+| `reach_up.png` | 14 | 160 x 128 |
+| `play_yarn.png` | 16 | 160 x 128 |
+| `confused.png` | 14 | 160 x 128 |
+
+### Batches 2 and 3 — chonk parity → `chonk2_existing.zip`, `chonk3_existing.zip`
+
+Same 10 clips, twice. Frame counts must match the originals EXACTLY or the fat cat animates at
+a different speed to the thin one:
+
+`stretch_yawn` 14, `happy_hearts` 12, `cursor_interaction` 14, `run_right` 11, `run_left` 10,
+`scratch_icons` 14, `zoomies` 13, `jump` 9, `paw_screen` 14, `fright` 16.
+
+Attach three files per request: `style_reference.png`, the clip's own `<clip>_normal.png`, and
+**`weight_reference_chonk3.png`** — that last one is what makes the weight consistent with the
+six clips already drawn. Without it the model invents its own idea of fat each time.
+
+### Batch 4 — chonk for the new clips → `toys_chonk.zip`
+
+`reach_up`, `play_yarn`, `confused` at chonk2 and chonk3, once batch 1 exists to reference.
+
+### Ingest
+
+`ingest_sheet.py` handles the cat clips as-is once their frame counts are added to `CLIPS`.
+The two 64x64 toy sprites do NOT go through it — it assumes a 160x128 grid and would need a
+per-clip frame size to take them, which is a code change, not a prompt.
+
 ## Wiring the results in
 
 Drop the PNGs into `assets/cat/orange_white/` and add each clip to `assets/sprites.json`:
