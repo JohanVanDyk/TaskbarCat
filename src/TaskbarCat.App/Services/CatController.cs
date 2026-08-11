@@ -27,6 +27,9 @@ internal sealed class CatController : IDisposable
     private readonly NeedsSimulator _sim;
     private readonly ChonkTracker _chonk;
     private readonly PerchAnimator _perch = new();
+    private ToyController? _toys;
+    private CatAction _toyAction = CatAction.Idle;
+    private bool _toyDriving;
     private readonly Needs _needs;
     private readonly Settings _settings;
     private readonly SettingsStore _store;
@@ -51,23 +54,20 @@ internal sealed class CatController : IDisposable
 
         _chonk = new ChonkTracker(settings.ChonkLevel, settings.ChonkFeeds,
             TimeSpan.FromSeconds(settings.ChonkSinceChangeSeconds));
-        _chonk.LevelChanged += (level, _) =>
-        {
-            // Reload at the new size: some clips have drawn chonk art, and without a reload the
-            // cat would only ever be stretched.
-            ReloadSprites(_settings.ColorPreset, level);
-            _window.ChonkLevel = level;
-            // Persist immediately: a size change is the visible result of the user feeding it,
-            // and losing it to a kill between the 20s autosaves would look like a bug.
-            Persist();
-        };
 
         // Time away is charged to the cat before anything else, so a user returning after
         // a weekend finds it hungry rather than exactly as they left it.
         var away = DateTime.UtcNow - settings.LastSeenUtc;
         _sim.ApplyOffline(_needs, away);
-        // Uncapped, unlike the needs meters: a cat left for a week should be its normal size
-        // again, not still chonky from Tuesday.
+
+        // Slim down for the time away — uncapped, unlike the needs meters, so a cat left for a
+        // week is its normal size again rather than still chonky from Tuesday.
+        //
+        // This runs BEFORE LevelChanged is subscribed, and that ordering is load-bearing: the
+        // handler reloads sprites and touches _engine and _animation, which do not exist yet.
+        // Subscribing first crashed the app on startup for any cat that had slimmed while it
+        // was closed — a null reference from inside a constructor, with the cat simply never
+        // appearing.
         _chonk.Tick(away);
 
         _engine = new BehaviourEngine(_needs, _sim, new SystemClock());
@@ -87,6 +87,22 @@ internal sealed class CatController : IDisposable
         _motion.SetSpan(_window.TravelSpan);
         _motion.PlaceAt(settings.AlongRail);
         _window.SetAlong(_motion.Along);
+        _chonk.LevelChanged += (level, _) =>
+        {
+            // Reload at the new size: some clips have drawn chonk art, and without a reload the
+            // cat would only ever be stretched.
+            ReloadSprites(_settings.ColorPreset, level);
+            _window.ChonkLevel = level;
+            // Persist immediately: a size change is the visible result of the user feeding it,
+            // and losing it to a kill between the 20s autosaves would look like a bug.
+            Persist();
+        };
+
+        // Reconcile: the library was loaded for the size in settings, which the offline
+        // slim-down above may have just changed.
+        if (_sprites.ChonkLevel != _chonk.Level)
+            ReloadSprites(_settings.ColorPreset, _chonk.Level);
+
         _window.ChonkLevel = _chonk.Level;
 
         // Start already standing wherever the bar currently is, rather than animating up on
@@ -120,6 +136,29 @@ internal sealed class CatController : IDisposable
     }
 
     public int ChonkLevel => _chonk.Level;
+
+    /// <summary>
+    /// Toy mode drives the cat directly instead of through the behaviour engine.
+    ///
+    /// The engine picks what a cat does when nothing is happening TO it; a toy on screen is the
+    /// opposite of that, and letting the engine keep choosing would have it wander off
+    /// mid-chase when a dwell expired. The engine still ticks — needs keep decaying, moods keep
+    /// updating — its decisions are simply not what is rendered while a toy is out.
+    /// </summary>
+    public void AttachToys(ToyController toys)
+    {
+        _toys = toys;
+        toys.Stopped += () =>
+        {
+            // Hand control back by replaying the engine's current decision, so the cat resumes
+            // from whatever it was already thinking rather than snapping to a default.
+            _toyAction = CatAction.Idle;
+            _motion.SpeedPixelsPerSecond = StrollSpeed;
+            OnDecisionChanged(_engine.Current);
+        };
+    }
+
+    public bool ToyModeActive => _toys?.IsActive == true;
 
     /// <summary>Clips currently coming from drawn chonk art rather than being stretched.</summary>
     public int ChonkArtClips => _sprites.ChonkArtClips;
@@ -228,6 +267,13 @@ internal sealed class CatController : IDisposable
             _window.Perch = _perch.Progress;
         }
 
+        // Toy mode takes the wheel. The engine still runs underneath — this only replaces what
+        // is drawn and where the cat walks.
+        // Set before the engine ticks, because the engine raises DecisionChanged from INSIDE
+        // Tick — discarding its return value is not enough to stop it repainting the cat.
+        _toyDriving = TickToys(dt);
+        bool toyDriving = _toyDriving;
+
         _engine.Tick(dt);
 
         if (_motion.Tick(dt))
@@ -238,7 +284,7 @@ internal sealed class CatController : IDisposable
 
         // Walking is the one action whose animation and motion must agree: once the cat
         // has arrived, end the action rather than let it tread air until dwell expires.
-        if (_engine.Action == CatAction.Walk && !_motion.IsWalking)
+        if (!toyDriving && _engine.Action == CatAction.Walk && !_motion.IsWalking)
             _engine.CutShort();
 
         int wantFps = _engine.IsSleeping ? SleepFps : AwakeFps;
@@ -251,8 +297,72 @@ internal sealed class CatController : IDisposable
         }
     }
 
+    /// <summary>
+    /// Feeds one frame of toy chasing. Returns true while a toy is driving the cat.
+    /// </summary>
+    private bool TickToys(TimeSpan dt)
+    {
+        if (_toys is null || !_toys.IsActive) return false;
+
+        double scale = _window.Scale;
+        var rail = _window.Rail;
+        double railLeft = rail?.Left ?? 0;
+        double railRight = rail?.Right ?? _window.ScreenPhysicalWidth;
+
+        double catW = _clipWidthPhysical(scale);
+        double catCentre = railLeft + (railRight - railLeft - catW) * _motion.Along + catW / 2;
+        double catTop = _window.CatTopPhysical;
+
+        var decision = _toys.Tick(dt, catCentre, catTop, catTop + _clipHeightPhysical(scale), railLeft, railRight);
+        if (decision is null) return false;
+
+        var d = decision.Value;
+        var action = d.Response switch
+        {
+            ToyResponse.Chase => CatAction.ChaseToy,
+            ToyResponse.ReachUp => CatAction.ReachUp,
+            ToyResponse.Play => CatAction.PlayToy,
+            ToyResponse.Pounce => CatAction.PounceToy,
+            _ => CatAction.Confused,
+        };
+
+        // A cat ambling at its normal 55px/s is not chasing anything. The run clips are
+        // authored at 16fps for a reason; the motion has to match them.
+        _motion.SpeedPixelsPerSecond = ChaseSpeed;
+
+        // Only chasing moves the cat; the reactions play on the spot.
+        if (d.Response == ToyResponse.Chase && !_toys.InReaction)
+            _motion.WalkTo(d.TargetAlong);
+        else
+            _motion.Stop();
+
+        if (action != _toyAction)
+        {
+            _toyAction = action;
+            var facing = _motion.Facing;
+            var clip = ResolveClip(new BehaviourDecision(action, facing, TimeSpan.Zero, true, null));
+            _animation.Play(clip);
+            _window.ShowClip(_animation.Clip, _animation.FrameIndex);
+            ActionChanged?.Invoke(action, _engine.Mood, _animation.Clip.Id);
+        }
+
+        return true;
+    }
+
+    /// <summary>Chase pace. Four times a stroll, which is what a run cycle looks like.</summary>
+    private const double ChaseSpeed = 220;
+    private const double StrollSpeed = 55;
+
+    private double _clipWidthPhysical(double scale) => _animation.Clip.FrameWidth * scale;
+    private double _clipHeightPhysical(double scale) => _animation.Clip.FrameHeight * scale;
+
     private void OnDecisionChanged(BehaviourDecision decision)
     {
+        // While a toy is out, the engine keeps thinking but does not get to draw. Without this
+        // the two fought over the screen: a chase would be interrupted by whatever the engine
+        // had just decided, mid-run.
+        if (_toyDriving) return;
+
         if (decision.Action == CatAction.Walk)
             _motion.StartWalk(decision.Facing);
         else

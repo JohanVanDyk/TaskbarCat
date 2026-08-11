@@ -20,6 +20,32 @@ public enum CatAction
 
     /// <summary>Got a fright. Only ever reached from a stimulus, never chosen at random.</summary>
     Startled,
+
+    // ---- toy mode. Like Startled, none of these have a weight in any mood table: they are
+    // things the cat does BECAUSE a toy is on screen, never things it decides to do. ----
+
+    /// <summary>Running after the toy.</summary>
+    ChaseToy,
+
+    /// <summary>Reared up, batting at a toy held overhead.</summary>
+    ReachUp,
+
+    /// <summary>Caught the yarn and is wrestling it.</summary>
+    PlayToy,
+
+    /// <summary>Pounced on the laser dot.</summary>
+    PounceToy,
+
+    /// <summary>Looked under its paw and found nothing, because it was light.</summary>
+    Confused,
+}
+
+/// <summary>Which toy is following the pointer.</summary>
+public enum ToyKind
+{
+    None,
+    Yarn,
+    Laser,
 }
 
 public enum Facing

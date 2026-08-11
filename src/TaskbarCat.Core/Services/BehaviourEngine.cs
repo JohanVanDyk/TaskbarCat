@@ -284,6 +284,12 @@ public sealed class BehaviourEngine
         // 16 frames at 10fps. Matched to the clip so it plays out exactly once and the
         // last frame — a normal seated pose — is what the cat cuts away from.
         CatAction.Startled => (1.6, 1.6, false),
+        // Toy dwells are governed by ToyChase, not by the catalog; these are only the floor.
+        CatAction.ChaseToy => (0.4, 0.4, true),
+        CatAction.ReachUp => (0.4, 0.4, true),
+        CatAction.PlayToy => (3.5, 3.5, false),
+        CatAction.PounceToy => (1.0, 1.0, false),
+        CatAction.Confused => (2.2, 2.2, false),
         _ => (5, 5, true),
     };
 
@@ -321,6 +327,16 @@ public static class ClipMap
         CatAction.Happy => "happy_hearts",
         CatAction.WatchCursor => "cursor_interaction",
         CatAction.Startled => "fright",
+
+        // Toy mode. reach_up / play_yarn / confused are not drawn yet; ResolveClip falls back
+        // to idle_blink for a missing sheet, so these name the closest existing art instead —
+        // scratch_icons IS a paw raking upward, zoomies IS energetic play. Swap the names when
+        // the real sheets land; nothing else changes.
+        CatAction.ChaseToy => facing == Facing.Left ? "run_left" : "run_right",
+        CatAction.ReachUp => "reach_up",
+        CatAction.PlayToy => "play_yarn",
+        CatAction.PounceToy => "jump",
+        CatAction.Confused => "confused",
         _ => "idle_blink",
     };
 }

@@ -95,6 +95,9 @@ internal sealed class CatWindow : Window
     /// <summary>Raised when an auto-hide bar slides in or out.</summary>
     public event Action<bool>? BarRevealedChanged;
 
+    /// <summary>The cat's top edge in physical screen pixels. Toy mode compares the pointer to it.</summary>
+    public double CatTopPhysical => Top * Scale;
+
     /// <summary>Checks whether the bar has slid. Driven from the controller's tick.</summary>
     public void PollTaskbarReveal() => _taskbar?.PollReveal();
 
@@ -272,7 +275,8 @@ internal sealed class CatWindow : Window
             ("feed", "Feed", Stimulus.Fed),
             ("brush", "Brush", Stimulus.Brushed),
             ("pet", "Pet", Stimulus.Petted),
-            ("play", "Play", Stimulus.PlayToyOffered),
+            ("play", "Yarn (chase the pointer)", Stimulus.PlayToyOffered),
+            ("laser", "Laser pointer", null),
             ("customize", "Customize", null),
             ("close", "Close (quit)", null),
         };

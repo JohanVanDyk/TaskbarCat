@@ -34,7 +34,12 @@ internal static class Program
             }
             catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
         }
-        AppDomain.CurrentDomain.UnhandledException += (_, e) => LogCrash(e.ExceptionObject);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => { ToyCursorService.Restore(); LogCrash(e.ExceptionObject); };
+
+        // Toy mode hides the system cursor, and a process killed from Task Manager never gets
+        // to put it back. Repair it on every launch, before anything else: the user's response
+        // to a missing pointer is to start things, and this makes that the fix.
+        ToyCursorService.RestoreAtStartup();
 
         var assets = Path.Combine(AppContext.BaseDirectory, "assets");
 
@@ -54,15 +59,19 @@ internal static class Program
         }
 
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
-        app.DispatcherUnhandledException += (_, e) => LogCrash(e.Exception);
+        app.DispatcherUnhandledException += (_, e) => { ToyCursorService.Restore(); LogCrash(e.Exception); };
         var window = new CatWindow(sprites, assets);
         window.Show();
 
         var controller = new CatController(window, sprites, store, settings,
             (preset, chonk) => SpriteLibrary.Load(assets, preset, chonk));
 
+        var toys = new ToyController(assets);
+        controller.AttachToys(toys);
+
         void Quit()
         {
+            toys.Dispose();          // puts the cursor and the hook back before anything else
             controller.Dispose();   // stops the clock and persists; safe to call twice
             app.Shutdown();
         }
@@ -106,20 +115,25 @@ internal static class Program
             {
                 case "customize": ShowCustomize(); break;
                 case "close": Quit(); break;
+
+                // The yarn IS the play action: picking it hands the toy to the pointer rather
+                // than just making the cat play by itself.
+                case "play": toys.Start(ToyKind.Yarn); break;
+                case "laser": toys.Start(ToyKind.Laser); break;
                 case "feed": controller.Send(Stimulus.Fed); break;
                 case "brush": controller.Send(Stimulus.Brushed); break;
                 case "pet": controller.Send(Stimulus.Petted); break;
-                case "play": controller.Send(Stimulus.PlayToyOffered); break;
             }
         };
 
         // Logoff and shutdown kill the process without OnClosed, so save here too.
-        app.SessionEnding += (_, _) => controller.Persist();
+        app.SessionEnding += (_, _) => { toys.Stop(); controller.Persist(); };
 
         if (args.Contains("--selftest"))
-            SelfTest.Arm(app, window, controller, tray, ShowCustomize, SetCoat, args);
+            SelfTest.Arm(app, window, controller, tray, ShowCustomize, SetCoat, toys, args);
 
         int code = app.Run();
+        toys.Dispose();
         controller.Dispose();
         return code;
     }

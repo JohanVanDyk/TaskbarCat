@@ -4,6 +4,11 @@ A cat that lives on your Windows taskbar. It sleeps, walks, grooms, gets hungry,
 when you feed, brush, pet or play with it. Click it for the radial menu — Feed, Brush, Pet,
 Play, Customize, Close. Right-click the tray icon to reposition, toggle autostart, or quit.
 
+**Toy mode.** Pick the yarn or the laser from the wheel and the mouse pointer *becomes* the
+toy. The cat chases it along the taskbar, rears up and bats at it when you hold it overhead,
+and wrestles the yarn when it catches it. Catching the laser gets it a pounce and then a look
+of profound confusion, because there was never anything there. **Right-click anywhere cancels.**
+
 **It rides the taskbar.** When an auto-hide taskbar slides up, the cat jumps on top of it and
 carries on there — walking, sleeping, everything. When the bar slides away it jumps back down,
 unless it was asleep, in which case the floor vanishes from under it and it drops with a
@@ -116,8 +121,9 @@ name, coat, tray icon source and the action trace to a file, then exits. Extra f
 `--selftest-stimulus=feed,pet` fires menu actions on a timer, `--selftest-menu` opens the
 radial menu, `--selftest-customize` opens the Customize dialog, `--selftest-name=` and
 `--selftest-coat=` drive what that dialog drives, `--selftest-chonk=0..3` forces the overfed
-size (feeding nine times and waiting an hour is the alternative), and `--selftest-startup=on|off`
-toggles autostart.
+size (feeding nine times and waiting an hour is the alternative), `--selftest-toy=yarn|laser`
+starts toy mode (and the harness always stops it before reporting, so a self-test can never
+leave the desktop without a pointer), and `--selftest-startup=on|off` toggles autostart.
 
 The radial menu closes as soon as it loses focus, so a capture script has to poll for it
 rather than sleep for a fixed time and shoot once.
@@ -154,6 +160,11 @@ clips at any level — falls back to stretching the normal sheet (`CatWindow.Cho
 A clip loaded from drawn art renders 1:1; stretching it as well would fatten it twice, so the
 decision is per clip, not per level. Drop more sheets into those folders and they take over
 automatically.
+
+`reach_up`, `play_yarn` and `confused` are **placeholders** — they point at `scratch_icons`,
+`zoomies` and `watch_bug` until the drawn sheets land. `assets/toys/*.png` are placeholders too,
+drawn by `tools/make_toy_placeholders.py`. Replacing any of them is a sheet plus a frame count
+in `sprites.json`; no code changes.
 
 Note `CatController.AwakeFps` is the ceiling on every clip's own fps — a 30 Hz tick is what
 lets a 16 or 18 fps run cycle actually play at its authored rate.

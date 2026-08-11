@@ -39,6 +39,7 @@ internal static class SelfTest
         TrayIconService tray,
         Action showCustomize,
         Action<string> setCoat,
+        ToyController toys,
         string[] args)
     {
         double seconds = 3.0;
@@ -65,6 +66,11 @@ internal static class SelfTest
                 // drawn chonk sheets are actually loaded, not just the stretch applied.
                 if (int.TryParse(arg["--selftest-chonk=".Length..], out var lvl))
                     controller.ForceChonk(lvl);
+            }
+            else if (arg.StartsWith("--selftest-toy=", StringComparison.OrdinalIgnoreCase))
+            {
+                var want = arg["--selftest-toy=".Length..].Trim();
+                if (Enum.TryParse<ToyKind>(want, true, out var toy)) toys.Start(toy);
             }
             else if (arg.StartsWith("--selftest-coat=", StringComparison.OrdinalIgnoreCase))
                 setCoat(arg["--selftest-coat=".Length..].Trim());
@@ -123,13 +129,17 @@ internal static class SelfTest
         timer.Tick += (_, _) =>
         {
             timer.Stop();
-            try { Report(window, controller, tray, trace, path); }
+            // Stop toy mode BEFORE reporting: the report records whether the cursor came back,
+            // and a self-test that left the desktop without a pointer would be worse than no
+            // self-test at all.
+            toys.Stop();
+            try { Report(window, controller, tray, toys, trace, path); }
             finally { app.Shutdown(); }
         };
         timer.Start();
     }
 
-    private static void Report(CatWindow window, CatController controller, TrayIconService tray, List<string> trace, string path)
+    private static void Report(CatWindow window, CatController controller, TrayIconService tray, ToyController toys, List<string> trace, string path)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"utc={DateTime.UtcNow:O}");
@@ -160,6 +170,8 @@ internal static class SelfTest
         sb.AppendLine($"cat.preset={controller.PresetId}");
         sb.AppendLine($"cat.chonk={controller.ChonkLevel}");
         sb.AppendLine($"cat.chonkart={controller.ChonkArtClips}");
+        sb.AppendLine($"toy.active={toys.Active}");
+        sb.AppendLine($"toy.yarnart={toys.CanStart(ToyKind.Yarn)} toy.laserart={toys.CanStart(ToyKind.Laser)}");
         sb.AppendLine($"cat.action={controller.Action}");
         sb.AppendLine($"cat.mood={controller.Mood}");
         sb.AppendLine($"cat.clip={window.CurrentClipId}");

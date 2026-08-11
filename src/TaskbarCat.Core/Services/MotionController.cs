@@ -82,6 +82,29 @@ public sealed class MotionController
 
     public void Stop() => IsWalking = false;
 
+    /// <summary>
+    /// Walks toward a specific point on the rail instead of a randomly chosen one. Used by toy
+    /// mode, where the destination is wherever the pointer is and changes every frame.
+    /// Arriving stops the walk, so a cat that has caught up stands still rather than jittering
+    /// back and forth across the target.
+    /// </summary>
+    public void WalkTo(double along)
+    {
+        double target = Math.Clamp(along, 0, 1) * Span;
+        if (Math.Abs(target - Position) < ArrivalSlack)
+        {
+            IsWalking = false;
+            return;
+        }
+
+        _target = target;
+        Facing = target > Position ? Facing.Right : Facing.Left;
+        IsWalking = true;
+    }
+
+    /// <summary>Close enough to count as arrived. Roughly a paw's width at 100%.</summary>
+    private const double ArrivalSlack = 12;
+
     /// <summary>Advances the walk. Returns true if the position actually changed.</summary>
     public bool Tick(TimeSpan dt)
     {

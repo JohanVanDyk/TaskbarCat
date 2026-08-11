@@ -132,6 +132,22 @@ public class ChonkTrackerTests
     }
 
     [Fact]
+    public void OfflineSlimming_FiresLevelChanged_WhichIsWhyOrderingMatters()
+    {
+        // The app crashed on startup because this event fired from inside CatController's
+        // constructor, before the fields its handler touches existed. The tracker is right to
+        // raise it; the subscriber has to be attached after construction, not before.
+        var t = new ChonkTracker(level: 3, feedsAtLevel: 0);
+        int fired = 0;
+        t.LevelChanged += (_, _) => fired++;
+
+        t.Tick(TimeSpan.FromHours(1));
+
+        Assert.Equal(3, fired);
+        Assert.Equal(0, t.Level);
+    }
+
+    [Fact]
     public void RestoredState_ContinuesWhereItLeftOff()
     {
         // What a restart does: level and banked feedings come back from settings.json.

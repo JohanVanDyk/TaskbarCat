@@ -97,6 +97,61 @@ internal static class Win32
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
+    // ---- cursor ----
+    // SetSystemCursor changes the pointer for the WHOLE desktop and TAKES OWNERSHIP of the
+    // handle it is given, so it must be handed a copy. SPI_SETCURSORS is the undo: it reloads
+    // every cursor from the user's scheme. See ToyCursorService for how restoration is
+    // guaranteed even when this process dies badly.
+
+    internal const uint OCR_NORMAL = 32512;
+    internal const uint SPI_SETCURSORS = 0x0057;
+    internal const uint SPIF_SENDCHANGE = 0x02;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool SetSystemCursor(IntPtr hcur, uint id);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool SystemParametersInfo(uint uiAction, uint uiParam, IntPtr pvParam, uint fWinIni);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern IntPtr CreateIcon(IntPtr hInstance, int nWidth, int nHeight,
+        byte cPlanes, byte cBitsPixel, byte[] lpbANDbits, byte[] lpbXORbits);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetCursorPos(out POINT lpPoint);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct POINT
+    {
+        public int X, Y;
+    }
+
+    // ---- low-level mouse hook ----
+    // Only used to see the right-click that cancels toy mode. The callback runs on the thread
+    // that installed it and blocks ALL desktop input while it executes, so it must do nothing
+    // but check a flag.
+
+    internal const int WH_MOUSE_LL = 14;
+    internal const int WM_RBUTTONDOWN = 0x0204;
+    internal const int WM_RBUTTONUP = 0x0205;
+
+    internal delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    internal static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
+    [DllImport("user32.dll")]
+    internal static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+    internal const int WS_EX_TRANSPARENT = 0x00000020;
+
     internal const uint SPI_GETWORKAREA = 0x0030;
 
     // ---- icons ----

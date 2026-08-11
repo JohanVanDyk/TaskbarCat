@@ -235,6 +235,33 @@
       "loop": false,
       "interruptible": false,
       "notes": "One-shot. 16 frames at 10fps = 1.6s, matched to the Startled dwell so the clip finishes exactly as the action ends and the cat cuts to its seated pose. The brief asked for 18; the model drew 16, and the count must follow the sheet."
+    },
+    {
+      "id": "reach_up",
+      "sheet": "scratch_icons.png",
+      "frames": 14,
+      "fps": 12,
+      "loop": true,
+      "interruptible": true,
+      "notes": "PLACEHOLDER: Rearing up and batting at an overhead toy. Borrows scratch_icons.png until the drawn sheet lands. Replace the sheet and frame count together — they must agree."
+    },
+    {
+      "id": "play_yarn",
+      "sheet": "zoomies.png",
+      "frames": 13,
+      "fps": 18,
+      "loop": true,
+      "interruptible": true,
+      "notes": "PLACEHOLDER: Wrestling a caught ball of yarn. Borrows zoomies.png until the drawn sheet lands. Replace the sheet and frame count together — they must agree."
+    },
+    {
+      "id": "confused",
+      "sheet": "watch_bug.png",
+      "frames": 18,
+      "fps": 10,
+      "loop": true,
+      "interruptible": true,
+      "notes": "PLACEHOLDER: Looked under its paw and found nothing. Borrows watch_bug.png until the drawn sheet lands. Replace the sheet and frame count together — they must agree."
     }
   ],
   "faces": {
@@ -331,5 +358,23 @@
       "notes": "Purely cosmetic overlay. Plays in a transient EffectWindow at a cached taskbar-icon rect; the real icon is never touched and reappears when the clip ends."
     }
   ],
-  "sourceNote": "Frames recovered from the spec sheet screenshot by tools/extract_sprites.py; counts reflect what was actually recoverable, not the sheet's printed labels."
+  "sourceNote": "Frames recovered from the spec sheet screenshot by tools/extract_sprites.py; counts reflect what was actually recoverable, not the sheet's printed labels.",
+  "toys": [
+    {
+      "id": "yarn",
+      "sheet": "toy_yarn.png",
+      "frames": 8,
+      "fps": 14,
+      "frameWidth": 64,
+      "frameHeight": 64
+    },
+    {
+      "id": "laser",
+      "sheet": "toy_laser.png",
+      "frames": 6,
+      "fps": 12,
+      "frameWidth": 64,
+      "frameHeight": 64
+    }
+  ]
 }
