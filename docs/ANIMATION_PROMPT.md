@@ -159,6 +159,82 @@ actions onto these names and a renamed clip is silently never shown.
 >
 > For each, state the frame count and intended playback fps.
 
+---
+
+## Third brief: real chonk art
+
+Overfeeding currently stretches the normal sheets (`CatWindow.ChonkStretch`, 1.10 / 1.22 /
+1.36 wide). Stretching is honest at level 1 — a 10% widen is indistinguishable from drawn art
+— but at 2 and 3 it reads as a squashed cat rather than a fat one, because stretching widens
+the head and eyes too, and a fat cat's head does not grow.
+
+**Scope this deliberately.** Every clip at every level is 15 sheets x 3 levels x 3 coats. Ask
+for **levels 2 and 3 only**, for the six clips the cat actually spends its time in — 12 sheets
+— and let level 1 keep the stretch. The other nine clips fall back to stretching too, which is
+why the brief insists the silhouette stays recognisable.
+
+Frame counts must match the existing clips EXACTLY, or the fat cat animates at a different
+speed to the thin one:
+
+| clip | frames | fps |
+|---|---|---|
+| `idle_blink` | 14 | 10 |
+| `sleep` | 12 | 6 |
+| `loaf` | 12 | 8 |
+| `eat` | 12 | 10 |
+| `watch_bug` | 18 | 10 |
+| `groom` | 14 | 12 |
+
+Attach `style_reference.png` and the normal-weight sheet for the clip being drawn, so the pose
+timing can be matched beat for beat. One clip per request.
+
+> Continuing the same cat and the same sprite sheets. I am attaching the reference sheet for
+> this clip at the cat's normal weight. Draw the SAME clip, same number of frames, same poses
+> and same timing, but with an overfed cat.
+>
+> **What "fatter" means here — this is the whole job:**
+> - The BODY gets wider and rounder. The belly drops and spreads, the chest broadens, the
+>   silhouette loses its waist and becomes a soft oval.
+> - The HEAD stays the same size, and so do the eyes and ears. This is the single thing that
+>   separates a fat cat from a big cat — scale the head and it just looks like a closer camera.
+> - The LEGS look shorter and stubbier because the body swallows them; the paws stay the same
+>   size. Where the cat is sitting, the front legs are pushed apart by the chest.
+> - The TAIL thickens slightly at the base.
+> - Cheeks fuller, a soft double chin where the head meets the chest.
+> - Keep it cute and healthy-looking, never sickly or sad. This is a well-loved cat that has
+>   been given too many treats, and it should look pleased about it.
+>
+> **Two weights, delivered as separate sheets:**
+> - **Level 2 (chunky)** — clearly heavier than the reference. Round, no waist, belly resting
+>   against the paws when seated.
+> - **Level 3 (chonkiest)** — comically round. Nearly spherical seated, the belly spreading on
+>   the ground, legs barely visible beneath it, cheeks full. Still unmistakably the same cat.
+>
+> **Output rules, unchanged from the earlier sheets:** one PNG per clip per level, horizontal
+> strip, each frame exactly 160 x 128 px, transparent RGBA, no shadow or backdrop, feet on
+> y = 118 in every frame, small eased increments between frames, loops seamlessly. The cat may
+> fill more of the frame width than the thin one does — that is the point — but must not touch
+> the frame edges.
+>
+> Match the attached sheet frame for frame: frame 3 of the fat version must be the same beat of
+> the same action as frame 3 of the thin one.
+>
+> Name the files `<clip>_chonk2.png` and `<clip>_chonk3.png`. State the frame count for each and
+> confirm it matches the reference.
+
+### Wiring it in
+
+Sheets go in `assets/cat/<preset>/chonk2/` and `chonk3/` keeping the plain clip name.
+`SpriteLibrary.Load` takes a chonk level and prefers the chonk directory, falling back to the
+normal sheet — so a level with only some clips drawn still works, the undrawn ones just keep
+stretching. `CatController.SetSprites` already exists for hot-swapping a library, so a size
+change reloads exactly the way a coat change does. `ChonkStretch` stays as the fallback and
+returns 1.0 for any level whose art is complete.
+
+`tools/make_preset.py` must be re-run afterwards to derive the grey and blue coats, and
+`ingest_sheet.py` normalises scale by HEIGHT, which preserves a wider-but-not-taller cat — do
+not "fix" that or it will slim the chonk art back down on ingest.
+
 ## Wiring the results in
 
 Drop the PNGs into `assets/cat/orange_white/` and add each clip to `assets/sprites.json`:
