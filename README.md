@@ -4,6 +4,11 @@ A cat that lives on your Windows taskbar. It sleeps, walks, grooms, gets hungry,
 when you feed, brush, pet or play with it. Click it for the radial menu — Feed, Brush, Pet,
 Play, Customize, Close. Right-click the tray icon to reposition, toggle autostart, or quit.
 
+**Overfeed it and it gets fat.** Every 3 feedings the cat goes up a size, to a maximum of 3
+sizes. It works back down one size per 20 minutes without being fed, and the size persists
+across restarts — time the app was closed counts toward slimming, so a cat left for a week is
+its normal shape again.
+
 **Customize** names the cat and picks its coat. Both apply live: the name shows on the tray
 tooltip, and the coat swaps without restarting or interrupting what the cat is doing. Cancel
 or Escape puts both back.
@@ -20,14 +25,14 @@ the exe's current path to `HKCU\...\Run`, so re-tick it if you move the folder.
 
 Only one cat runs per session; launching a second time is a no-op.
 
-State (needs, name, position) lives in `%APPDATA%\TaskbarCat\settings.json`. Delete it for a
-fresh cat.
+State (needs, name, position, size) lives in `%APPDATA%\TaskbarCat\settings.json`, and any
+unhandled exception is appended to `crash.log` beside it. Delete the settings for a fresh cat.
 
 ## Build
 
 ```powershell
 dotnet build src/TaskbarCat.App          # debug
-dotnet test  tests/TaskbarCat.Tests      # 42 tests
+dotnet test  tests/TaskbarCat.Tests      # 58 tests
 powershell -File tools/publish.ps1       # self-contained exe + zip -> dist/
 powershell -File tools/publish.ps1 -FrameworkDependent   # ~1MB, needs .NET 8 Desktop Runtime
 ```
@@ -60,8 +65,9 @@ That runs for N seconds, writes the resolved taskbar rail, DPI scale, window pla
 name, coat, tray icon source and the action trace to a file, then exits. Extra flags:
 `--selftest-stimulus=feed,pet` fires menu actions on a timer, `--selftest-menu` opens the
 radial menu, `--selftest-customize` opens the Customize dialog, `--selftest-name=` and
-`--selftest-coat=` drive what that dialog drives, and `--selftest-startup=on|off` toggles
-autostart.
+`--selftest-coat=` drive what that dialog drives, `--selftest-chonk=0..3` forces the overfed
+size (feeding nine times and waiting an hour is the alternative), and `--selftest-startup=on|off`
+toggles autostart.
 
 The radial menu closes as soon as it loses focus, so a capture script has to poll for it
 rather than sleep for a fixed time and shoot once.
@@ -85,6 +91,11 @@ spec-sheet extractions they replaced were 1–4 frames each, which is what made 
 like a slideshow; they are still in the manifest as the fallback `SpriteLibrary` lands on if
 a sheet goes missing. `docs/ANIMATION_PROMPT.md` is the brief they were generated from and
 `tools/ingest_sheet.py` is what turns a generated canvas into a conforming strip.
+
+The chonk sizes are the same sheets drawn stretched — wider, slightly taller — not three more
+sets of art. Drawn chonk would be 45 more sheets per level across every clip and coat, all of
+which would have to stay in sync. `CatWindow.ChonkStretch` is the only place that knows the cat
+is fat, so it is the seam to replace if real art ever lands.
 
 Note `CatController.AwakeFps` is the ceiling on every clip's own fps — a 30 Hz tick is what
 lets a 16 or 18 fps run cycle actually play at its authored rate.

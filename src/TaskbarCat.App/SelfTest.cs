@@ -24,6 +24,9 @@ namespace TaskbarCat.App;
 ///
 /// --selftest-name=, --selftest-coat= and --selftest-customize exercise the Customize panel's
 /// three effects — rename, coat swap, and the dialog itself — without a mouse.
+///
+/// --selftest-chonk=0..3 forces the overfed size, so all four can be photographed without
+/// feeding the cat nine times and waiting an hour for it to slim back down.
 /// </summary>
 internal static class SelfTest
 {
@@ -55,6 +58,13 @@ internal static class SelfTest
             }
             else if (arg.StartsWith("--selftest-name=", StringComparison.OrdinalIgnoreCase))
                 controller.Rename(arg["--selftest-name=".Length..]);
+            else if (arg.StartsWith("--selftest-chonk=", StringComparison.OrdinalIgnoreCase))
+            {
+                // Sets the rendered size directly, bypassing the feed counter: screenshotting
+                // all four sizes otherwise means feeding nine times and waiting an hour.
+                if (int.TryParse(arg["--selftest-chonk=".Length..], out var lvl))
+                    window.ChonkLevel = lvl;
+            }
             else if (arg.StartsWith("--selftest-coat=", StringComparison.OrdinalIgnoreCase))
                 setCoat(arg["--selftest-coat=".Length..].Trim());
             else if (arg.StartsWith("--selftest-stimulus=", StringComparison.OrdinalIgnoreCase))
@@ -145,6 +155,7 @@ internal static class SelfTest
 
         sb.AppendLine($"cat.name={controller.Name}");
         sb.AppendLine($"cat.preset={controller.PresetId}");
+        sb.AppendLine($"cat.chonk={controller.ChonkLevel}");
         sb.AppendLine($"cat.action={controller.Action}");
         sb.AppendLine($"cat.mood={controller.Mood}");
         sb.AppendLine($"cat.clip={window.CurrentClipId}");

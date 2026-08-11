@@ -46,6 +46,7 @@ internal sealed class CatWindow : Window
     private double _alongRail = 0.5;
     private double _lastScale;
     private double _lastSpan = -1;
+    private int _chonk;
     private RadialMenu? _menu;
 
     public CatWindow(SpriteLibrary sprites, string assetsRoot)
@@ -94,8 +95,9 @@ internal sealed class CatWindow : Window
         {
             if (_taskbar is null) return 0;
             var rail = _taskbar.Rail;
-            int catW = (int)Math.Round(_clip.FrameWidth * Scale);
-            int catH = (int)Math.Round(_clip.FrameHeight * Scale);
+            var (fatW, fatH) = ChonkStretch(_chonk);
+            int catW = (int)Math.Round(_clip.FrameWidth * Scale * fatW);
+            int catH = (int)Math.Round(_clip.FrameHeight * Scale * fatH);
             return Math.Max(0, rail.IsHorizontal ? rail.Width - catW : rail.Height - catH);
         }
     }
@@ -151,6 +153,38 @@ internal sealed class CatWindow : Window
 
         Reposition();
         RaiseSpanIfChanged();
+    }
+
+    /// <summary>
+    /// How much wider and taller the sprite is drawn, by chonk level. An overfed cat is drawn
+    /// from the same sheets, stretched — mostly outward, a little upward, which is how a fat
+    /// cat actually differs from a thin one.
+    ///
+    /// Stretching rather than drawing three more sets of sheets is a deliberate trade: it is
+    /// 45 sheets per chonk level otherwise, across every clip and every coat, and every one of
+    /// them would have to stay in sync with the others. If drawn chonk art ever lands, this is
+    /// the seam to replace — nothing else knows the cat is fat.
+    /// </summary>
+    private static (double W, double H) ChonkStretch(int level) => level switch
+    {
+        1 => (1.10, 1.02),
+        2 => (1.22, 1.05),
+        3 => (1.36, 1.09),
+        _ => (1.0, 1.0),
+    };
+
+    /// <summary>Chonk level, 0-3. Set by the controller; changes re-place the window.</summary>
+    public int ChonkLevel
+    {
+        get => _chonk;
+        set
+        {
+            int lvl = Math.Clamp(value, 0, 3);
+            if (lvl == _chonk) return;
+            _chonk = lvl;
+            Reposition();
+            RaiseSpanIfChanged();
+        }
     }
 
     /// <summary>Sets the cat's normalised position along the rail and re-places it.</summary>
@@ -215,8 +249,9 @@ internal sealed class CatWindow : Window
 
         double scale = Scale;
         _lastScale = scale;
-        int catW = (int)Math.Round(_clip.FrameWidth * scale);
-        int catH = (int)Math.Round(_clip.FrameHeight * scale);
+        var (fatW, fatH) = ChonkStretch(_chonk);
+        int catW = (int)Math.Round(_clip.FrameWidth * scale * fatW);
+        int catH = (int)Math.Round(_clip.FrameHeight * scale * fatH);
 
         int screenW = (int)Math.Round(SystemParameters.PrimaryScreenWidth * scale);
         int screenH = (int)Math.Round(SystemParameters.PrimaryScreenHeight * scale);
@@ -280,9 +315,12 @@ internal sealed class CatWindow : Window
         // system routed every click to whatever was behind it: clicking the cat did nothing.
         var local = PointFromScreen(new Point(px, py));
 
-        // Window DIP size equals the frame's pixel size by construction (we size the
-        // window to frame*scale physical), so local DIPs index the alpha mask directly.
-        int x = (int)local.X, y = (int)local.Y;
+        // Window DIP size equals the frame's pixel size by construction (we size the window to
+        // frame*scale physical) — EXCEPT when the cat is chonky, where the window is stretched
+        // around the same sheet. Undo the stretch before indexing, or the mask is sampled at
+        // the wrong pixel and the fat cat is unclickable down its sides.
+        var (fatW, fatH) = ChonkStretch(_chonk);
+        int x = (int)(local.X / fatW), y = (int)(local.Y / fatH);
         if (x < 0 || y < 0 || x >= _clip.FrameWidth || y >= _clip.FrameHeight) return false;
 
         byte alpha = _clip.AlphaMasks[_frame][y * _clip.FrameWidth + x];

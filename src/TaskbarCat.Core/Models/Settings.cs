@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using TaskbarCat.Services;
 
 namespace TaskbarCat.Models;
 
@@ -8,7 +9,7 @@ public sealed class Settings
 {
     /// <summary>Schema the running build writes. Bump when the shape changes, and add a
     /// case to <see cref="SettingsStore.Migrate"/> in the same commit.</summary>
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -23,6 +24,14 @@ public sealed class Settings
 
     /// <summary>Normalised position along the taskbar, so the cat wakes up where it slept.</summary>
     public double AlongRail { get; set; } = 0.5;
+
+    // ---- chonk (schema 2) ----
+    // Persisted so an overfed cat is still fat after a restart. SinceChange is stored in
+    // seconds rather than as a TimeSpan: the JSON stays readable and hand-editable, which is
+    // the same reason every other field in here is a plain number.
+    public int ChonkLevel { get; set; }
+    public int ChonkFeeds { get; set; }
+    public double ChonkSinceChangeSeconds { get; set; }
 
     /// <summary>Drives offline decay on next launch.</summary>
     public DateTime LastSeenUtc { get; set; } = DateTime.UtcNow;
@@ -108,10 +117,14 @@ public sealed class SettingsStore
                 s.SchemaVersion = Settings.CurrentSchemaVersion;
                 break;
 
-            case Settings.CurrentSchemaVersion:
+            case 1:
+                // v1 -> v2 added the chonk fields. Nothing to convert: an existing cat has
+                // simply never been overfed, which is what the zero defaults already say.
+                s.SchemaVersion = Settings.CurrentSchemaVersion;
                 break;
 
-            // case 1: migrate v1 -> v2 here when the shape next changes, then fall through.
+            case Settings.CurrentSchemaVersion:
+                break;
 
             default:
                 // From the future. Keep the parsed values, keep the higher version number so a
@@ -125,6 +138,9 @@ public sealed class SettingsStore
         s.Weight = Needs.Clamp(s.Weight);
         s.Tiredness = Needs.Clamp(s.Tiredness);
         s.AlongRail = Math.Clamp(s.AlongRail, 0, 1);
+        s.ChonkLevel = Math.Clamp(s.ChonkLevel, 0, ChonkTracker.MaxLevel);
+        s.ChonkFeeds = Math.Clamp(s.ChonkFeeds, 0, ChonkTracker.FeedingsPerLevel - 1);
+        s.ChonkSinceChangeSeconds = Math.Clamp(s.ChonkSinceChangeSeconds, 0, ChonkTracker.SlimInterval.TotalSeconds);
         if (string.IsNullOrWhiteSpace(s.ColorPreset)) s.ColorPreset = "orange_white";
         if (string.IsNullOrWhiteSpace(s.Name)) s.Name = "Cat";
 

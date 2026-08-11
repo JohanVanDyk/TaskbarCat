@@ -25,6 +25,7 @@ internal sealed class CatController : IDisposable
     private readonly MotionController _motion;
     private readonly AnimationPlayer _animation;
     private readonly NeedsSimulator _sim;
+    private readonly ChonkTracker _chonk;
     private readonly Needs _needs;
     private readonly Settings _settings;
     private readonly SettingsStore _store;
@@ -44,9 +45,23 @@ internal sealed class CatController : IDisposable
         _needs = settings.ToNeeds();
         _sim = new NeedsSimulator();
 
+        _chonk = new ChonkTracker(settings.ChonkLevel, settings.ChonkFeeds,
+            TimeSpan.FromSeconds(settings.ChonkSinceChangeSeconds));
+        _chonk.LevelChanged += (level, _) =>
+        {
+            _window.ChonkLevel = level;
+            // Persist immediately: a size change is the visible result of the user feeding it,
+            // and losing it to a kill between the 20s autosaves would look like a bug.
+            Persist();
+        };
+
         // Time away is charged to the cat before anything else, so a user returning after
         // a weekend finds it hungry rather than exactly as they left it.
-        _sim.ApplyOffline(_needs, DateTime.UtcNow - settings.LastSeenUtc);
+        var away = DateTime.UtcNow - settings.LastSeenUtc;
+        _sim.ApplyOffline(_needs, away);
+        // Uncapped, unlike the needs meters: a cat left for a week should be its normal size
+        // again, not still chonky from Tuesday.
+        _chonk.Tick(away);
 
         _engine = new BehaviourEngine(_needs, _sim, new SystemClock());
         _motion = new MotionController();
@@ -65,6 +80,7 @@ internal sealed class CatController : IDisposable
         _motion.SetSpan(_window.TravelSpan);
         _motion.PlaceAt(settings.AlongRail);
         _window.SetAlong(_motion.Along);
+        _window.ChonkLevel = _chonk.Level;
         _window.ShowClip(_animation.Clip, _animation.FrameIndex);
 
         _timer = new DispatcherTimer(DispatcherPriority.Render);
@@ -83,7 +99,13 @@ internal sealed class CatController : IDisposable
     public event Action<CatAction, Mood, string>? ActionChanged;
 
     /// <summary>Feeds a user action into the engine. The engine decides how to react.</summary>
-    public void Send(Stimulus stimulus) => _engine.Notify(stimulus);
+    public void Send(Stimulus stimulus)
+    {
+        if (stimulus == Stimulus.Fed) _chonk.Fed();
+        _engine.Notify(stimulus);
+    }
+
+    public int ChonkLevel => _chonk.Level;
 
     public string Name => _settings.Name;
 
@@ -135,6 +157,10 @@ internal sealed class CatController : IDisposable
         // away-time, so a laptop shut overnight wakes a hungry cat rather than a fresh one.
         var (dt, away) = TickBudget.For(raw);
         if (away > TimeSpan.Zero) _sim.ApplyOffline(_needs, away);
+
+        // Slimming runs on wall-clock time including any suspend, so a laptop shut for an hour
+        // wakes a slimmer cat. Both slices count: the clamped one is still real elapsed time.
+        _chonk.Tick(dt + away);
 
         _engine.Tick(dt);
 
@@ -193,6 +219,9 @@ internal sealed class CatController : IDisposable
     public void Persist()
     {
         _settings.CopyFrom(_needs, _motion.Along);
+        _settings.ChonkLevel = _chonk.Level;
+        _settings.ChonkFeeds = _chonk.FeedsAtLevel;
+        _settings.ChonkSinceChangeSeconds = _chonk.SinceChange.TotalSeconds;
         _store.Save(_settings);
     }
 
