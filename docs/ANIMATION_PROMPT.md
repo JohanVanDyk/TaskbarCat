@@ -100,18 +100,27 @@ for — a clip declaring more frames than the sheet holds crashes the slicer.
 
 ---
 
-## Second brief: the four remaining old clips
+## Second brief: every clip still on the original art
 
-`idle_blink`, `groom`, `eat` and `happy_hearts` are still 2–8 frame extractions from the
-original spec screenshot, so the cat visibly changes style when it switches to one of them.
+Audit of the manifest against `ClipMap` (only clips the engine can actually reach matter):
 
-This brief regenerates them **against the new art, not the original sheets** — attach
-`style_reference.png` (four frames of the generated look) and `watch_bug.png`. Getting the
-first brief's style back is now the goal, so the reference must be the new one.
+| clip | frames | why it looks wrong |
+|---|---|---|
+| `stretch_yawn` | **1** | a still image — there is no animation at all |
+| `happy_hearts` | 2 | two-frame flicker |
+| `cursor_interaction` | 2 | two-frame flicker |
+| `loaf` | 3 | |
+| `eat` | 5 | |
+| `groom` | 6 | |
+| `idle_blink` | 8 | the default resting pose, so it is the most-seen clip after sleep |
 
-Same rules as above: one clip per request, horizontal strip, 160x128 per frame, transparent,
-feet on y=118, centred, same cat scale. Ids must stay exactly as they are — the engine maps
-its actions onto these names and a renamed clip is silently never shown.
+Nine other old clips (`sit_look`, `walk_left`, `walk_right`, `play_pounce`, `scratch`,
+`meow_attention`) are unreachable since `ClipMap` was repointed at the new art — they stay as
+missing-sheet fallbacks and are not worth regenerating.
+
+Attach `style_reference.png` and `watch_bug.png`, **not** the original spec sheets: matching
+the generated look is the target now. Ids must stay exactly as they are — the engine maps its
+actions onto these names and a renamed clip is silently never shown.
 
 > Continuing the same cat and the same sprite sheets. Match the attached reference exactly —
 > that is the established look: soft painterly cel shading, large glossy eyes with a bright
@@ -121,12 +130,12 @@ its actions onto these names and a renamed clip is silently never shown.
 > 160 x 128 px, transparent RGBA background, no shadow or backdrop, the cat centred with its
 > feet at y = 118 in every frame, same body scale as the reference, and small eased
 > increments between consecutive frames so it reads as motion rather than separate drawings.
-> All four LOOP seamlessly.
+> All seven LOOP seamlessly.
 >
-> 1. **`idle_blink`** — 14 frames. Sitting front-on, doing almost nothing: a slow breath
->    across the whole cycle, one unhurried double blink around frames 5–8, ears adjusting
->    slightly, tail tip curling once. This is the default resting clip and plays constantly,
->    so it must be calm and completely seamless — no pose that draws the eye.
+> 1. **`idle_blink`** — 14 frames. Sitting front-on doing almost nothing: a slow breath across
+>    the whole cycle, one unhurried double blink around frames 5-8, ears adjusting slightly,
+>    tail tip curling once. This is the default resting clip and plays constantly, so it must
+>    be calm and completely seamless — no pose that draws the eye.
 > 2. **`groom`** — 14 frames. Licking a raised front paw, then wiping it over the ear and
 >    cheek: lift the paw, three quick licks, paw over the ear twice, settle back. Head tilts
 >    into the paw, eyes half closed and content, tongue visible on the licks.
@@ -134,15 +143,21 @@ its actions onto these names and a renamed clip is silently never shown.
 >    bowl, three chewing beats with the cheeks working, lift the head, lick the muzzle, dip
 >    again. Include the bowl in frame at the cat's feet, low and simple.
 > 4. **`happy_hearts`** — 12 frames. Delighted: eyes squeezed into happy arcs, a wide open
->    smile, body doing a small bouncing wiggle, tail up and quivering. Two or three small
->    hearts float up and fade near the head over the cycle.
+>    smile, a small bouncing wiggle, tail up and quivering. Two or three small hearts float up
+>    and fade near the head over the cycle.
+> 5. **`loaf`** — 12 frames. Settled in a loaf: paws tucked completely out of sight, body a
+>    rounded bread shape, eyes open and half-lidded, content. Only a slow breath, one lazy
+>    blink and a single ear swivel across the whole cycle. Awake, unlike the curled sleep pose.
+> 6. **`stretch_yawn`** — 14 frames. The full waking stretch: rise from sitting, front legs
+>    extended forward with the chest dropped and the rear end up, back arched deep, a wide
+>    yawn with the tongue curling and eyes screwed shut, then relax back to sitting. The one
+>    clip that should feel luxurious and slow — hold the deepest stretch for two frames.
+> 7. **`cursor_interaction`** — 14 frames. Tracking and batting at the mouse pointer: head
+>    follows something just off to the right, then two quick swipes of a front paw at it, a
+>    pause with the paw raised and ears forward, then a third swipe. Alert and playful, body
+>    stays seated.
 >
 > For each, state the frame count and intended playback fps.
-
-When the PNGs land in Downloads, `python3 tools/ingest_sheet.py --report` measures them and
-`--write` installs them; update the frame counts in `sprites.json` to whatever it reports and
-re-run `make_preset.py` for the other two coats. `eat` keeps its existing `prop` block in the
-manifest — if the generated bowl reads well, drop the prop instead of drawing two bowls.
 
 ## Wiring the results in
 

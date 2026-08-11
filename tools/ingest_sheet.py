@@ -50,11 +50,14 @@ CLIPS = {
     "sleep": 12,
     "paw_screen": 14,
     "watch_bug": 18,
-    # second brief — the four remaining spec-screenshot extractions
+    # second brief — every clip ClipMap can still reach that is on the original art
     "idle_blink": 14,
     "groom": 14,
     "eat": 12,
     "happy_hearts": 12,
+    "loaf": 12,
+    "stretch_yawn": 14,
+    "cursor_interaction": 14,
 }
 
 
