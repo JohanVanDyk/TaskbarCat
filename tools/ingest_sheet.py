@@ -27,7 +27,19 @@ from PIL import Image
 from scipy import ndimage
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-SRC = pathlib.Path("/mnt/c/Users/Windows Pc/Downloads")
+# Drops land either loose in Downloads or in a subfolder of it; search both.
+SRC_ROOTS = [
+    pathlib.Path("/mnt/c/Users/Windows Pc/Downloads/taskbar_cat_new_clips"),
+    pathlib.Path("/mnt/c/Users/Windows Pc/Downloads"),
+]
+
+
+def find_sheet(name: str):
+    for root in SRC_ROOTS:
+        p = root / f"{name}.png"
+        if p.exists():
+            return p
+    return None
 DST = ROOT / "assets" / "cat" / "orange_white"
 
 FRAME_W, FRAME_H = 160, 128
@@ -84,6 +96,28 @@ def segment(alpha: np.ndarray, expected: int):
 
     parts.sort(key=lambda b: (b[0] + b[2]) / 2)
 
+    # Separate the cats from their loose bits. happy_hearts floats hearts above the cat and
+    # every one of them labels as its own component — 82 components for a 12 frame clip. A
+    # component only starts a frame if it is cat-sized; everything smaller is scenery and gets
+    # attached to the nearest cat instead (this also catches a detached tail tip).
+    # Threshold off the BIGGEST components, not the median: with 70 hearts and 12 cats the
+    # median is a heart, and then every heart qualifies as a cat. The typical cat is the
+    # median of the largest `expected` components.
+    tallest = sorted((p[3] - p[1] for p in parts), reverse=True)[:max(1, expected)]
+    h_cat = tallest[len(tallest) // 2]
+    primaries = [p for p in parts if (p[3] - p[1]) >= h_cat * 0.55]
+    extras = [p for p in parts if (p[3] - p[1]) < h_cat * 0.55]
+
+    cat_span = {id(p): (p[1], p[3]) for p in primaries}
+
+    if primaries and extras:
+        for e in extras:
+            ecx = (e[0] + e[2]) / 2
+            near = min(primaries, key=lambda p: abs((p[0] + p[2]) / 2 - ecx))
+            near[0], near[1] = min(near[0], e[0]), min(near[1], e[1])
+            near[2], near[3] = max(near[2], e[2]), max(near[3], e[3])
+        parts = primaries
+
     # One component IS one frame: the cat is drawn as a single connected body, and the gaps
     # between frames are real (3-24px here) even where the spacing is uneven. Do NOT merge on
     # small gaps — that was the first thing tried and it fused genuine frames.
@@ -97,10 +131,15 @@ def segment(alpha: np.ndarray, expected: int):
     density = (alpha > ALPHA_MIN).sum(axis=0)
 
     out = []
-    for x0, _, x1, _ in parts:
+    for p in parts:
+        x0, x1 = p[0], p[2]
+        # The cat's OWN vertical extent, before its hearts were folded in. Scale and baseline
+        # come from the cat; if the hearts counted, a clip that floats them overhead would
+        # shrink the cat to fit the pair into 128px and it would not match the other clips.
+        cy0, cy1 = cat_span.get(id(p), (p[1], p[3]))
         k = max(1, round((x1 - x0) / w_med))
         if k == 1:
-            out.append((x0, x1))
+            out.append((x0, x1, cy0, cy1))
             continue
 
         # Cut where the two cats actually touch, not at the arithmetic boundary. An equal
@@ -114,7 +153,7 @@ def segment(alpha: np.ndarray, expected: int):
             hi = int(min(x1 - 4, guess + step * 0.3))
             cuts.append(lo + int(np.argmin(density[lo:hi])) if hi > lo else int(guess))
         cuts.append(x1)
-        out.extend((cuts[i], cuts[i + 1]) for i in range(k))
+        out.extend((cuts[i], cuts[i + 1], cy0, cy1) for i in range(k))
 
     return out
 
@@ -132,7 +171,19 @@ def drop_slivers(frame: Image.Image, keep_ratio: float = 0.12) -> Image.Image:
 
     areas = ndimage.sum(np.ones_like(labels), labels, range(1, n + 1))
     biggest = areas.max()
-    keep = {i + 1 for i, area in enumerate(areas) if area >= biggest * keep_ratio}
+
+    # Small is not enough to condemn a blob: happy_hearts floats deliberate little hearts over
+    # the cat and an area test alone deleted every one of them. A neighbour's sliver is small
+    # AND runs off the side of the crop, which is what actually distinguishes it.
+    width = labels.shape[1]
+    keep = set()
+    for i, area in enumerate(areas, start=1):
+        if area >= biggest * keep_ratio:
+            keep.add(i)
+            continue
+        cols = np.where((labels == i).any(axis=0))[0]
+        if len(cols) and cols[0] > 0 and cols[-1] < width - 1:
+            keep.add(i)          # free-floating and fully inside: part of the art
 
     mask = np.isin(labels, list(keep))
     a[..., 3] = np.where(mask, a[..., 3], 0)
@@ -145,12 +196,12 @@ def boxes_for(path: pathlib.Path, expected: int):
     alpha = np.array(im)[..., 3]
 
     out = []
-    for x0, x1 in segment(alpha, expected):
+    for x0, x1, cy0, cy1 in segment(alpha, expected):
         strip = alpha[:, x0:x1]
         rows = np.where((strip > ALPHA_MIN).any(axis=1))[0]
         if len(rows) == 0:
             continue
-        out.append((x0, int(rows[0]), x1, int(rows[-1]) + 1))
+        out.append((x0, int(rows[0]), x1, int(rows[-1]) + 1, int(cy0), int(cy1)))
     return im, out
 
 
@@ -162,8 +213,8 @@ def main() -> int:
 
     measured = {}
     for name in CLIPS:
-        path = SRC / f"{name}.png"
-        if not path.exists():
+        path = find_sheet(name)
+        if path is None:
             continue        # not in this drop; leave whatever is already installed alone
         im, boxes = boxes_for(path, CLIPS[name])
         measured[name] = (im, boxes)
@@ -173,7 +224,7 @@ def main() -> int:
 
     # One scale for every clip, from the median cat height across all frames of all clips.
     # Per-clip scaling would blow up the curled sleep pose and shrink the stretched jump.
-    all_h = [b[3] - b[1] for _, boxes in measured.values() for b in boxes]
+    all_h = [b[5] - b[4] for _, boxes in measured.values() for b in boxes]
     median_h = float(np.median(all_h))
     scale = TARGET_MEDIAN_H / median_h
 
@@ -190,7 +241,7 @@ def main() -> int:
         im, boxes = measured[name]
         got = len(boxes)
         flag = "OK " if got == expected else "!! "
-        heights = [b[3] - b[1] for b in boxes]
+        heights = [b[5] - b[4] for b in boxes]
         print(f"{flag}{name:<15} frames {got:>2}/{expected:<3} "
               f"h {min(heights)}-{max(heights)}px -> {min(heights)*scale:.0f}-{max(heights)*scale:.0f}px")
 
@@ -207,10 +258,10 @@ def main() -> int:
 
         # The clip's own ground line. Median, not min: one airborne frame must not drag the
         # whole clip down, and one crouch must not lift it.
-        ground = float(np.median([b[3] for b in boxes]))
+        ground = float(np.median([b[5] for b in boxes]))
 
         sheet = Image.new("RGBA", (FRAME_W * got, FRAME_H), (0, 0, 0, 0))
-        for i, (x0, y0, x1, y1) in enumerate(boxes):
+        for i, (x0, y0, x1, y1, cy0, cy1) in enumerate(boxes):
             cat = drop_slivers(im.crop((x0, y0, x1, y1)))
             w = max(1, round((x1 - x0) * clip_scale))
             h = max(1, round((y1 - y0) * clip_scale))
@@ -224,8 +275,10 @@ def main() -> int:
 
             cat = cat.resize((w, h), Image.LANCZOS)
 
-            lift = round((y1 - ground) * clip_scale)     # negative = airborne
-            top = BASELINE_Y - h + lift
+            lift = round((cy1 - ground) * clip_scale)          # negative = airborne
+            # Place the CAT's feet on the baseline; whatever sits above it in the crop
+            # (floating hearts) rides along at its own offset.
+            top = BASELINE_Y - round((cy1 - y0) * clip_scale) + lift
             top = max(0, min(FRAME_H - h, top))
 
             sheet.alpha_composite(cat, (i * FRAME_W + (FRAME_W - w) // 2, top))

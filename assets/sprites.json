@@ -42,10 +42,11 @@
     {
       "id": "idle_blink",
       "sheet": "idle_blink.png",
-      "frames": 8,
-      "fps": 8,
+      "frames": 14,
+      "fps": 10,
       "loop": true,
-      "interruptible": true
+      "interruptible": true,
+      "notes": "Generated sheet (second brief), re-registered by tools/ingest_sheet.py."
     },
     {
       "id": "sit_look",
@@ -58,11 +59,11 @@
     {
       "id": "loaf",
       "sheet": "loaf.png",
-      "frames": 3,
-      "fps": 6,
+      "frames": 12,
+      "fps": 8,
       "loop": true,
       "interruptible": true,
-      "notes": "Sheet label was illegible in the spec image (rendered as 'Technical Noants'). Treated as a settled/loaf idle variant. TODO: confirm against the real asset drop before shipping."
+      "notes": "Generated sheet (second brief), re-registered by tools/ingest_sheet.py."
     },
     {
       "id": "walk_right",
@@ -91,19 +92,20 @@
     {
       "id": "stretch_yawn",
       "sheet": "stretch_yawn.png",
-      "frames": 1,
-      "fps": 8,
+      "frames": 14,
+      "fps": 12,
       "loop": false,
       "interruptible": false,
-      "notes": "Only one frame survived extraction from the spec screenshot; renders as a static pose until the real asset drop lands."
+      "notes": "Generated sheet (second brief), re-registered by tools/ingest_sheet.py."
     },
     {
       "id": "groom",
       "sheet": "groom.png",
-      "frames": 6,
-      "fps": 10,
+      "frames": 14,
+      "fps": 12,
       "loop": true,
-      "interruptible": false
+      "interruptible": false,
+      "notes": "Generated sheet (second brief), re-registered by tools/ingest_sheet.py."
     },
     {
       "id": "play_pounce",
@@ -116,15 +118,11 @@
     {
       "id": "eat",
       "sheet": "eat.png",
-      "frames": 5,
+      "frames": 12,
       "fps": 10,
       "loop": true,
       "interruptible": false,
-      "prop": {
-        "iconId": "food_bowl",
-        "offsetX": 40,
-        "offsetY": 12
-      }
+      "notes": "Generated sheet (second brief), re-registered by tools/ingest_sheet.py."
     },
     {
       "id": "scratch",
@@ -151,18 +149,20 @@
     {
       "id": "happy_hearts",
       "sheet": "happy_hearts.png",
-      "frames": 2,
-      "fps": 10,
+      "frames": 12,
+      "fps": 12,
       "loop": true,
-      "interruptible": false
+      "interruptible": false,
+      "notes": "Generated sheet (second brief), re-registered by tools/ingest_sheet.py."
     },
     {
       "id": "cursor_interaction",
       "sheet": "cursor_interaction.png",
-      "frames": 2,
-      "fps": 12,
+      "frames": 14,
+      "fps": 14,
       "loop": true,
-      "interruptible": true
+      "interruptible": true,
+      "notes": "Generated sheet (second brief), re-registered by tools/ingest_sheet.py."
     },
     {
       "id": "run_right",
