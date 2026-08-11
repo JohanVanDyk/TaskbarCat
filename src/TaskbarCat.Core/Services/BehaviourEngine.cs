@@ -285,17 +285,21 @@ public static class ClipMap
 {
     public static string ClipFor(CatAction action, Facing facing) => action switch
     {
+        // Where a purpose-drawn clip exists it wins over the original spec-sheet extraction,
+        // which was 1-4 frames for most of these and read as a slideshow. The old ids stay in
+        // sprites.json as the fallback SpriteLibrary lands on if a new sheet is missing.
         CatAction.Sleep => "sleep",
         CatAction.Idle => "idle_blink",
-        CatAction.SitLook => "sit_look",
+        CatAction.SitLook => "watch_bug",                                   // was sit_look, 2 frames
         CatAction.Loaf => "loaf",
-        CatAction.Walk => facing == Facing.Left ? "walk_left" : "walk_right",
+        CatAction.Walk => facing == Facing.Left ? "run_left" : "run_right",  // was walk_*, 4-6 frames
         CatAction.Stretch => "stretch_yawn",
         CatAction.Groom => "groom",
-        CatAction.Play or CatAction.Pounce => "play_pounce",
-        CatAction.Scratch => "scratch",
+        CatAction.Play => "zoomies",                                        // was play_pounce, 4 frames
+        CatAction.Pounce => "jump",
+        CatAction.Scratch => "scratch_icons",                               // was scratch, 1 frame
         CatAction.Eat => "eat",
-        CatAction.Meow => "meow_attention",
+        CatAction.Meow => "paw_screen",                                     // was meow_attention, 3 frames
         CatAction.Happy => "happy_hearts",
         CatAction.WatchCursor => "cursor_interaction",
         _ => "idle_blink",

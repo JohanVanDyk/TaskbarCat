@@ -12,8 +12,11 @@ namespace TaskbarCat.App.Services;
 /// </summary>
 internal sealed class CatController : IDisposable
 {
-    // Sleeping is ~72% of the cat's life, so the sleep tick rate dominates average CPU.
-    private const int AwakeFps = 15;
+    // Sleeping is ~72% of the cat's life, so the sleep tick rate dominates average CPU — which
+    // is what buys the awake rate. 30 rather than 15 because the tick is the ceiling on every
+    // clip's own fps: the run cycles are authored at 16 and zoomies at 18, and at a 15 Hz tick
+    // those lose every other frame and look worse than the sparse art they replaced.
+    private const int AwakeFps = 30;
     private const int SleepFps = 4;
 
     private readonly CatWindow _window;

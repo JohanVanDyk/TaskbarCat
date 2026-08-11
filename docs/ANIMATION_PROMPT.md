@@ -11,10 +11,27 @@ Paste the block below into ChatGPT **and attach `assets/cat/orange_white/sit_loo
 image models degrade badly when asked for a 24-cell grid in one shot, and clip-at-a-time
 also lets you re-roll a bad one without losing the others.
 
-Expect to iterate. If sheets come back misaligned, ask for single frames (one image per
-frame) and stitch them with `tools/stitch_frames.py`-style code rather than fighting the
-grid. Whatever comes back, run `python3 tools/make_preset.py` afterwards to regenerate the
-grey and blue coats from the new orange sheets.
+**What actually came back** (2026-08-11 run): eight 1536x1024 canvases, each a rough
+horizontal row — right idea, none of the pixel spec. The cat was a different size in every
+clip, spacing was uneven, baselines drifted, neighbouring cats touched, and most clips had
+1–3 fewer frames than asked for. Do not expect to fix that by rewording the brief; it is
+what the medium does.
+
+`tools/ingest_sheet.py` exists to absorb it: it segments the frames as connected components,
+splits blobs where two cats were drawn touching (cutting at the lowest-ink column, not the
+midpoint), drops the sliver of the neighbour left behind, normalises scale across clips, and
+registers every frame against the clip's own median ground line so grounded poses sit on the
+baseline while airborne ones keep their lift.
+
+```bash
+python3 tools/ingest_sheet.py --report     # frame counts and sizes, changes nothing
+python3 tools/ingest_sheet.py --write      # writes the 160x128 strips into assets/
+python3 tools/make_preset.py grey_white --name "Grey & White" --sat 0.16 --val 0.92
+python3 tools/make_preset.py blue_white --name "Blue & White" --hue 205 --sat 0.55 --val 0.98
+```
+
+Take the frame counts `--report` prints into `sprites.json` rather than the counts you asked
+for — a clip declaring more frames than the sheet holds crashes the slicer.
 
 ---
 

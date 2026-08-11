@@ -79,6 +79,16 @@ report a bug that is not there.
 `assets/sprites.json` is the manifest: clips, frame counts, fps, and the colour presets.
 Sheets are 160x128-per-frame horizontal strips under `assets/cat/<preset>/`.
 
+Eight clips (`run_left`, `run_right`, `zoomies`, `jump`, `sleep`, `scratch_icons`,
+`paw_screen`, `watch_bug`) are 9–18 frames and drive most of what you see. The original
+spec-sheet extractions they replaced were 1–4 frames each, which is what made the cat look
+like a slideshow; they are still in the manifest as the fallback `SpriteLibrary` lands on if
+a sheet goes missing. `docs/ANIMATION_PROMPT.md` is the brief they were generated from and
+`tools/ingest_sheet.py` is what turns a generated canvas into a conforming strip.
+
+Note `CatController.AwakeFps` is the ceiling on every clip's own fps — a 30 Hz tick is what
+lets a 16 or 18 fps run cycle actually play at its authored rate.
+
 Only **Orange & White** is drawn art. **Grey & White** and **Blue & White** are derived from it
 by `tools/make_preset.py`, which recolours the saturated coat pixels and leaves the whites,
 outline and eyes alone — replace them with real sheets when there are any. A preset is only

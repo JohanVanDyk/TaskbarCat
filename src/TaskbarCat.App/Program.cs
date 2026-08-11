@@ -21,6 +21,21 @@ internal static class Program
         using var single = new Mutex(initiallyOwned: true, @"Local\TaskbarCat.SingleInstance", out bool isFirst);
         if (!isFirst) return 0;
 
+        // A WinExe has nowhere to print a stack trace, so an unhandled exception just makes the
+        // cat disappear with no explanation. Write it down where the settings live.
+        var crashLog = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "TaskbarCat", "crash.log");
+        void LogCrash(object? ex)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(crashLog)!);
+                File.AppendAllText(crashLog, $"=== {DateTime.Now:O}{Environment.NewLine}{ex}{Environment.NewLine}{Environment.NewLine}");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
+        }
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => LogCrash(e.ExceptionObject);
+
         var assets = Path.Combine(AppContext.BaseDirectory, "assets");
 
         var store = new SettingsStore();
@@ -39,6 +54,7 @@ internal static class Program
         }
 
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        app.DispatcherUnhandledException += (_, e) => LogCrash(e.Exception);
         var window = new CatWindow(sprites, assets);
         window.Show();
 

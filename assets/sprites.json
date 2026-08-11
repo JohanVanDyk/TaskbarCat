@@ -33,11 +33,11 @@
     {
       "id": "sleep",
       "sheet": "sleep.png",
-      "frames": 5,
-      "fps": 4,
+      "frames": 12,
+      "fps": 6,
       "loop": true,
       "interruptible": true,
-      "notes": "Lowest-cost clip. Renderer drops the global tick to 4 FPS while this plays."
+      "notes": "Generated sheet, re-registered to the 160x128 grid by tools/ingest_sheet.py. Frame count is what the model actually drew, not what the brief asked for."
     },
     {
       "id": "idle_blink",
@@ -163,6 +163,69 @@
       "fps": 12,
       "loop": true,
       "interruptible": true
+    },
+    {
+      "id": "run_right",
+      "sheet": "run_right.png",
+      "frames": 11,
+      "fps": 16,
+      "loop": true,
+      "interruptible": true,
+      "notes": "Generated sheet, re-registered to the 160x128 grid by tools/ingest_sheet.py. Frame count is what the model actually drew, not what the brief asked for."
+    },
+    {
+      "id": "run_left",
+      "sheet": "run_left.png",
+      "frames": 10,
+      "fps": 16,
+      "loop": true,
+      "interruptible": true,
+      "notes": "Generated sheet, re-registered to the 160x128 grid by tools/ingest_sheet.py. Frame count is what the model actually drew, not what the brief asked for."
+    },
+    {
+      "id": "scratch_icons",
+      "sheet": "scratch_icons.png",
+      "frames": 14,
+      "fps": 12,
+      "loop": true,
+      "interruptible": true,
+      "notes": "Generated sheet, re-registered to the 160x128 grid by tools/ingest_sheet.py. Frame count is what the model actually drew, not what the brief asked for."
+    },
+    {
+      "id": "zoomies",
+      "sheet": "zoomies.png",
+      "frames": 13,
+      "fps": 18,
+      "loop": true,
+      "interruptible": true,
+      "notes": "Generated sheet, re-registered to the 160x128 grid by tools/ingest_sheet.py. Frame count is what the model actually drew, not what the brief asked for."
+    },
+    {
+      "id": "jump",
+      "sheet": "jump.png",
+      "frames": 9,
+      "fps": 14,
+      "loop": false,
+      "interruptible": false,
+      "notes": "Generated sheet, re-registered to the 160x128 grid by tools/ingest_sheet.py. Frame count is what the model actually drew, not what the brief asked for."
+    },
+    {
+      "id": "paw_screen",
+      "sheet": "paw_screen.png",
+      "frames": 14,
+      "fps": 12,
+      "loop": true,
+      "interruptible": true,
+      "notes": "Generated sheet, re-registered to the 160x128 grid by tools/ingest_sheet.py. Frame count is what the model actually drew, not what the brief asked for."
+    },
+    {
+      "id": "watch_bug",
+      "sheet": "watch_bug.png",
+      "frames": 18,
+      "fps": 10,
+      "loop": true,
+      "interruptible": true,
+      "notes": "Generated sheet, re-registered to the 160x128 grid by tools/ingest_sheet.py. Frame count is what the model actually drew, not what the brief asked for."
     }
   ],
   "faces": {
