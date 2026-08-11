@@ -72,6 +72,17 @@ CLIPS = {
     "cursor_interaction": 14,
     # fright brief — the drop when an auto-hide taskbar vanishes under a sleeping cat
     "fright": 18,
+    # toy mode
+    "reach_up": 14,
+    "play_yarn": 16,
+    "confused": 14,
+}
+
+# The toys are not cats: 64x64, and they float at the pointer rather than standing on a
+# baseline, so they are centred vertically instead of being registered to the ground.
+TOYS = {
+    "toy_yarn": 8,
+    "toy_laser": 6,
 }
 
 
@@ -242,6 +253,53 @@ def boxes_for(path: pathlib.Path, expected: int):
     return im, out
 
 
+def ingest_toys(args) -> int:
+    """
+    The toys, on their own 64x64 grid. Separate path because every registration rule for the
+    cat is wrong here: a toy has no feet, is never airborne, and hangs off the mouse pointer,
+    so it is centred in both axes and scaled to fill the frame.
+    """
+    out_dir = ROOT / "assets" / "toys"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    size = 64
+    target = 56          # leave a little air so the glow/tail is not clipped
+
+    for name, expected in TOYS.items():
+        path = find_sheet(name)
+        if path is None:
+            print(f"{name:<12} not in this drop")
+            continue
+
+        im, boxes = boxes_for(path, expected)
+        got = len(boxes)
+        flag = "OK " if got == expected else "!! "
+
+        widest = max(b[2] - b[0] for b in boxes)
+        tallest = max(b[5] - b[4] for b in boxes)
+        scale = target / max(widest, tallest)
+
+        print(f"{flag}{name:<12} frames {got:>2}/{expected:<3} "
+              f"source {widest}x{tallest}px -> {round(widest*scale)}x{round(tallest*scale)}px")
+
+        if not args.write:
+            continue
+
+        sheet = Image.new("RGBA", (size * got, size), (0, 0, 0, 0))
+        for i, (x0, y0, x1, y1, _, _) in enumerate(boxes):
+            toy = drop_slivers(im.crop((x0, y0, x1, y1)))
+            w = max(1, round((x1 - x0) * scale))
+            h = max(1, round((y1 - y0) * scale))
+            toy = toy.resize((w, h), Image.LANCZOS)
+            sheet.alpha_composite(toy, (i * size + (size - w) // 2, (size - h) // 2))
+
+        sheet.save(out_dir / f"{name}.png")
+
+    if args.write:
+        print("\nwrote toys to", out_dir.relative_to(ROOT))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true", help="write strips into assets/")
@@ -249,6 +307,8 @@ def main() -> int:
     ap.add_argument("--src", help="extra directory to search for sheets")
     ap.add_argument("--chonk", type=int, default=0,
                     help="chonk level: reads <clip>_chonkN.png and writes into assets/cat/<preset>/chonkN/")
+    ap.add_argument("--toys", action="store_true",
+                    help="ingest the 64x64 toy sprites into assets/toys/ instead of cat clips")
     args = ap.parse_args()
 
     if args.src:
@@ -257,6 +317,9 @@ def main() -> int:
     suffix = f"_chonk{args.chonk}" if args.chonk else ""
     out_dir = DST / f"chonk{args.chonk}" if args.chonk else DST
     out_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.toys:
+        return ingest_toys(args)
 
     measured = {}
     for name in CLIPS:

@@ -49,7 +49,8 @@ public sealed class ToyChase
 
     public static readonly TimeSpan PlayDuration = TimeSpan.FromSeconds(3.5);
     public static readonly TimeSpan PounceDuration = TimeSpan.FromSeconds(1.0);
-    public static readonly TimeSpan ConfusedDuration = TimeSpan.FromSeconds(2.2);
+    /// <summary>Matched to the confused clip: 14 frames at 10fps.</summary>
+    public static readonly TimeSpan ConfusedDuration = TimeSpan.FromSeconds(1.4);
 
     /// <summary>
     /// After a catch the cat ignores the toy for a moment. Without it a stationary pointer

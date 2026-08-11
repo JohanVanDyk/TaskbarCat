@@ -161,10 +161,10 @@ A clip loaded from drawn art renders 1:1; stretching it as well would fatten it 
 decision is per clip, not per level. Drop more sheets into those folders and they take over
 automatically.
 
-`reach_up`, `play_yarn` and `confused` are **placeholders** — they point at `scratch_icons`,
-`zoomies` and `watch_bug` until the drawn sheets land. `assets/toys/*.png` are placeholders too,
-drawn by `tools/make_toy_placeholders.py`. Replacing any of them is a sheet plus a frame count
-in `sprites.json`; no code changes.
+`assets/toys/` holds the toys themselves on their own **64x64** grid — not the cat's 160x128,
+and not coat-dependent. `ingest_sheet.py --toys` is the path for those: a toy hangs off the
+pointer rather than standing on the ground, so it is centred in both axes instead of registered
+to a baseline.
 
 Note `CatController.AwakeFps` is the ceiling on every clip's own fps — a 30 Hz tick is what
 lets a 16 or 18 fps run cycle actually play at its authored rate.

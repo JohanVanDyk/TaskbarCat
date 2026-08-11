@@ -238,30 +238,30 @@
     },
     {
       "id": "reach_up",
-      "sheet": "scratch_icons.png",
+      "sheet": "reach_up.png",
       "frames": 14,
       "fps": 12,
       "loop": true,
       "interruptible": true,
-      "notes": "PLACEHOLDER: Rearing up and batting at an overhead toy. Borrows scratch_icons.png until the drawn sheet lands. Replace the sheet and frame count together — they must agree."
+      "notes": "Drawn for toy mode, re-registered by tools/ingest_sheet.py."
     },
     {
       "id": "play_yarn",
-      "sheet": "zoomies.png",
-      "frames": 13,
-      "fps": 18,
+      "sheet": "play_yarn.png",
+      "frames": 14,
+      "fps": 12,
       "loop": true,
-      "interruptible": true,
-      "notes": "PLACEHOLDER: Wrestling a caught ball of yarn. Borrows zoomies.png until the drawn sheet lands. Replace the sheet and frame count together — they must agree."
+      "interruptible": false,
+      "notes": "Drawn for toy mode, re-registered by tools/ingest_sheet.py."
     },
     {
       "id": "confused",
-      "sheet": "watch_bug.png",
-      "frames": 18,
+      "sheet": "confused.png",
+      "frames": 14,
       "fps": 10,
-      "loop": true,
-      "interruptible": true,
-      "notes": "PLACEHOLDER: Looked under its paw and found nothing. Borrows watch_bug.png until the drawn sheet lands. Replace the sheet and frame count together — they must agree."
+      "loop": false,
+      "interruptible": false,
+      "notes": "Drawn for toy mode, re-registered by tools/ingest_sheet.py."
     }
   ],
   "faces": {

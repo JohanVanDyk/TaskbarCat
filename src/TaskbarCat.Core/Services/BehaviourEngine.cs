@@ -289,7 +289,8 @@ public sealed class BehaviourEngine
         CatAction.ReachUp => (0.4, 0.4, true),
         CatAction.PlayToy => (3.5, 3.5, false),
         CatAction.PounceToy => (1.0, 1.0, false),
-        CatAction.Confused => (2.2, 2.2, false),
+        // 14 frames at 10fps = 1.4s, matched so the clip lands on its seated last frame.
+        CatAction.Confused => (1.4, 1.4, false),
         _ => (5, 5, true),
     };
 
@@ -328,10 +329,7 @@ public static class ClipMap
         CatAction.WatchCursor => "cursor_interaction",
         CatAction.Startled => "fright",
 
-        // Toy mode. reach_up / play_yarn / confused are not drawn yet; ResolveClip falls back
-        // to idle_blink for a missing sheet, so these name the closest existing art instead —
-        // scratch_icons IS a paw raking upward, zoomies IS energetic play. Swap the names when
-        // the real sheets land; nothing else changes.
+        // Toy mode.
         CatAction.ChaseToy => facing == Facing.Left ? "run_left" : "run_right",
         CatAction.ReachUp => "reach_up",
         CatAction.PlayToy => "play_yarn",
