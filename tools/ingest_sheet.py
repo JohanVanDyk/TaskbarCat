@@ -40,6 +40,7 @@ MIN_RUN_PX = 12           # narrower than this is speckle, not a cat
 MERGE_GAP_PX = 10         # a detached tail tip should not become its own frame
 
 # name -> expected frame count, from the brief
+# Only sheets present in SRC are processed, so both briefs can share this list.
 CLIPS = {
     "run_right": 12,
     "run_left": 12,
@@ -49,6 +50,11 @@ CLIPS = {
     "sleep": 12,
     "paw_screen": 14,
     "watch_bug": 18,
+    # second brief — the four remaining spec-screenshot extractions
+    "idle_blink": 14,
+    "groom": 14,
+    "eat": 12,
+    "happy_hearts": 12,
 }
 
 
@@ -155,8 +161,7 @@ def main() -> int:
     for name in CLIPS:
         path = SRC / f"{name}.png"
         if not path.exists():
-            print(f"{name}: MISSING {path}", file=sys.stderr)
-            continue
+            continue        # not in this drop; leave whatever is already installed alone
         im, boxes = boxes_for(path, CLIPS[name])
         measured[name] = (im, boxes)
 
