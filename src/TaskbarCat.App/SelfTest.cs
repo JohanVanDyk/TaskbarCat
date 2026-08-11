@@ -60,10 +60,11 @@ internal static class SelfTest
                 controller.Rename(arg["--selftest-name=".Length..]);
             else if (arg.StartsWith("--selftest-chonk=", StringComparison.OrdinalIgnoreCase))
             {
-                // Sets the rendered size directly, bypassing the feed counter: screenshotting
-                // all four sizes otherwise means feeding nine times and waiting an hour.
+                // Bypasses the feed counter: screenshotting all four sizes otherwise means
+                // feeding nine times and waiting an hour. Goes through the controller so the
+                // drawn chonk sheets are actually loaded, not just the stretch applied.
                 if (int.TryParse(arg["--selftest-chonk=".Length..], out var lvl))
-                    window.ChonkLevel = lvl;
+                    controller.ForceChonk(lvl);
             }
             else if (arg.StartsWith("--selftest-coat=", StringComparison.OrdinalIgnoreCase))
                 setCoat(arg["--selftest-coat=".Length..].Trim());
@@ -156,6 +157,7 @@ internal static class SelfTest
         sb.AppendLine($"cat.name={controller.Name}");
         sb.AppendLine($"cat.preset={controller.PresetId}");
         sb.AppendLine($"cat.chonk={controller.ChonkLevel}");
+        sb.AppendLine($"cat.chonkart={controller.ChonkArtClips}");
         sb.AppendLine($"cat.action={controller.Action}");
         sb.AppendLine($"cat.mood={controller.Mood}");
         sb.AppendLine($"cat.clip={window.CurrentClipId}");

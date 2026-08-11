@@ -44,7 +44,7 @@ internal static class Program
         SpriteLibrary sprites;
         try
         {
-            sprites = SpriteLibrary.Load(assets, settings.ColorPreset);
+            sprites = SpriteLibrary.Load(assets, settings.ColorPreset, settings.ChonkLevel);
         }
         catch (Exception ex)
         {
@@ -58,7 +58,8 @@ internal static class Program
         var window = new CatWindow(sprites, assets);
         window.Show();
 
-        var controller = new CatController(window, sprites, store, settings);
+        var controller = new CatController(window, sprites, store, settings,
+            (preset, chonk) => SpriteLibrary.Load(assets, preset, chonk));
 
         void Quit()
         {
@@ -76,7 +77,7 @@ internal static class Program
 
         void SetCoat(string presetId)
         {
-            try { controller.SetSprites(SpriteLibrary.Load(assets, presetId)); }
+            try { controller.SetCoat(presetId); }
             catch (Exception ex)
             {
                 // A coat whose sheets are missing or corrupt leaves the cat as it was.

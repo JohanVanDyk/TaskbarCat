@@ -71,10 +71,15 @@ def main() -> int:
     dst_dir = ASSETS / "cat" / args.id
     dst_dir.mkdir(parents=True, exist_ok=True)
 
-    sheets = sorted(src_dir.glob("*.png"))
+    # rglob, not glob: the chonk levels live in chonk2/ and chonk3/ subdirectories and a
+    # coat that only recoloured the top level would snap back to ginger when the cat got fat.
+    sheets = sorted(src_dir.rglob("*.png"))
     for sheet in sheets:
-        recolour(Image.open(sheet), args.hue, args.sat, args.val).save(dst_dir / sheet.name)
-        print(f"  {args.source}/{sheet.name} -> {args.id}/{sheet.name}")
+        rel = sheet.relative_to(src_dir)
+        out = dst_dir / rel
+        out.parent.mkdir(parents=True, exist_ok=True)
+        recolour(Image.open(sheet), args.hue, args.sat, args.val).save(out)
+        print(f"  {args.source}/{rel} -> {args.id}/{rel}")
 
     block = {
         "id": args.id,

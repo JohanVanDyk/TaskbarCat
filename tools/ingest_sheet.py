@@ -190,10 +190,45 @@ def drop_slivers(frame: Image.Image, keep_ratio: float = 0.12) -> Image.Image:
     return Image.fromarray(a)
 
 
+def pick_row(alpha: np.ndarray, expected: int) -> tuple[int, int]:
+    """
+    Vertical band holding the animation. Some sheets come back with the clip drawn TWICE, one
+    row above the other; segmenting the whole canvas then fuses the two rows into tall boxes.
+    Bands are split on empty rows, and the one whose frame count is closest to what was asked
+    for wins (earliest on a tie, i.e. the first take).
+    """
+    rows = (alpha > ALPHA_MIN).any(axis=1)
+    bands, start = [], None
+    for y, on in enumerate(rows):
+        if on and start is None:
+            start = y
+        elif not on and start is not None:
+            if y - start >= 24:
+                bands.append((start, y))
+            start = None
+    if start is not None and len(rows) - start >= 24:
+        bands.append((start, len(rows)))
+
+    if len(bands) <= 1:
+        return (0, alpha.shape[0])
+
+    scored = []
+    for y0, y1 in bands:
+        count = len(segment(alpha[y0:y1, :], expected))
+        scored.append((abs(count - expected), y0, y1))
+    scored.sort()
+    return (scored[0][1], scored[0][2])
+
+
 def boxes_for(path: pathlib.Path, expected: int):
     """Per-frame bounding boxes in source pixels."""
     im = Image.open(path).convert("RGBA")
     alpha = np.array(im)[..., 3]
+
+    y0, y1 = pick_row(alpha, expected)
+    if (y0, y1) != (0, alpha.shape[0]):
+        im = im.crop((0, y0, im.width, y1))
+        alpha = alpha[y0:y1, :]
 
     out = []
     for x0, x1, cy0, cy1 in segment(alpha, expected):
@@ -209,11 +244,21 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true", help="write strips into assets/")
     ap.add_argument("--report", action="store_true", help="measure only")
+    ap.add_argument("--src", help="extra directory to search for sheets")
+    ap.add_argument("--chonk", type=int, default=0,
+                    help="chonk level: reads <clip>_chonkN.png and writes into assets/cat/<preset>/chonkN/")
     args = ap.parse_args()
+
+    if args.src:
+        SRC_ROOTS.insert(0, pathlib.Path(args.src))
+
+    suffix = f"_chonk{args.chonk}" if args.chonk else ""
+    out_dir = DST / f"chonk{args.chonk}" if args.chonk else DST
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     measured = {}
     for name in CLIPS:
-        path = find_sheet(name)
+        path = find_sheet(name + suffix)
         if path is None:
             continue        # not in this drop; leave whatever is already installed alone
         im, boxes = boxes_for(path, CLIPS[name])
@@ -283,11 +328,11 @@ def main() -> int:
 
             sheet.alpha_composite(cat, (i * FRAME_W + (FRAME_W - w) // 2, top))
 
-        sheet.save(DST / f"{name}.png")
+        sheet.save(out_dir / f"{name}.png")
         manifest_rows.append({"id": name, "sheet": f"{name}.png", "frames": got})
 
     if args.write:
-        print("\nwrote", len(manifest_rows), "strips to", DST.relative_to(ROOT))
+        print("\nwrote", len(manifest_rows), "strips to", out_dir.relative_to(ROOT))
         print(json.dumps(manifest_rows, indent=2))
     return 0
 

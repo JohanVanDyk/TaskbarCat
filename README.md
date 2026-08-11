@@ -92,10 +92,12 @@ like a slideshow; they are still in the manifest as the fallback `SpriteLibrary`
 a sheet goes missing. `docs/ANIMATION_PROMPT.md` is the brief they were generated from and
 `tools/ingest_sheet.py` is what turns a generated canvas into a conforming strip.
 
-The chonk sizes are the same sheets drawn stretched — wider, slightly taller — not three more
-sets of art. Drawn chonk would be 45 more sheets per level across every clip and coat, all of
-which would have to stay in sync. `CatWindow.ChonkStretch` is the only place that knows the cat
-is fat, so it is the seam to replace if real art ever lands.
+Chonk levels 2 and 3 have **drawn art** for the six clips the cat spends its time in, under
+`assets/cat/<preset>/chonk2/` and `chonk3/`. Everything else — level 1, and the other nine
+clips at any level — falls back to stretching the normal sheet (`CatWindow.ChonkStretch`).
+A clip loaded from drawn art renders 1:1; stretching it as well would fatten it twice, so the
+decision is per clip, not per level. Drop more sheets into those folders and they take over
+automatically.
 
 Note `CatController.AwakeFps` is the ceiling on every clip's own fps — a 30 Hz tick is what
 lets a 16 or 18 fps run cycle actually play at its authored rate.

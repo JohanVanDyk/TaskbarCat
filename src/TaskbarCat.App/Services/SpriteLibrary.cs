@@ -17,6 +17,13 @@ internal sealed class Clip
     public required int FrameHeight { get; init; }
     public required int Fps { get; init; }
     public required bool Loop { get; init; }
+
+    /// <summary>
+    /// True when this clip was loaded from a drawn chonk sheet rather than the normal one.
+    /// The renderer stretches the normal sheets to fake an overfed cat; a clip that has real
+    /// chonk art must NOT be stretched on top of that, or it is fattened twice.
+    /// </summary>
+    public bool ChonkArt { get; init; }
 }
 
 /// <summary>
@@ -57,7 +64,13 @@ internal sealed class SpriteLibrary
             .ToList();
     }
 
-    public static SpriteLibrary Load(string assetsRoot, string? presetId = null)
+    /// <summary>Chonk level these clips were loaded for. 0 is the normal-weight cat.</summary>
+    public int ChonkLevel { get; private set; }
+
+    /// <summary>How many clips came from drawn chonk art. 0 means everything is being stretched.</summary>
+    public int ChonkArtClips { get; private set; }
+
+    public static SpriteLibrary Load(string assetsRoot, string? presetId = null, int chonkLevel = 0)
     {
         var manifest = ReadManifest(assetsRoot);
 
@@ -66,18 +79,32 @@ internal sealed class SpriteLibrary
                      ?? manifest.ColorPresets.FirstOrDefault()
                      ?? throw new InvalidDataException("sprites.json declares no colour presets.");
 
-        var lib = new SpriteLibrary { PresetId = preset.Id };
+        var lib = new SpriteLibrary { PresetId = preset.Id, ChonkLevel = chonkLevel };
+        var coatDir = Path.Combine(assetsRoot, preset.SheetDir.Replace('/', Path.DirectorySeparatorChar));
+
         foreach (var clip in manifest.Clips)
         {
-            var path = Path.Combine(assetsRoot, preset.SheetDir.Replace('/', Path.DirectorySeparatorChar), clip.Sheet);
+            // Drawn chonk art wins where it exists; everything else falls back to the normal
+            // sheet and gets stretched. Only the clips worth drawing were drawn, so a level is
+            // always a mix of the two.
+            var path = Path.Combine(coatDir, clip.Sheet);
+            bool chonkArt = false;
+
+            if (chonkLevel > 0)
+            {
+                var fat = Path.Combine(coatDir, $"chonk{chonkLevel}", clip.Sheet);
+                if (File.Exists(fat)) { path = fat; chonkArt = true; }
+            }
+
             if (!File.Exists(path)) continue;   // art drop is incremental; skip what is not there yet
 
-            lib._clips[clip.Id] = Slice(clip, manifest.Defaults, path);
+            lib._clips[clip.Id] = Slice(clip, manifest.Defaults, path, chonkArt);
+            if (chonkArt) lib.ChonkArtClips++;
         }
         return lib;
     }
 
-    private static Clip Slice(ClipDef def, ClipDefaults defaults, string path)
+    private static Clip Slice(ClipDef def, ClipDefaults defaults, string path, bool chonkArt = false)
     {
         int fw = def.FrameWidth ?? defaults.FrameWidth;
         int fh = def.FrameHeight ?? defaults.FrameHeight;
@@ -109,6 +136,7 @@ internal sealed class SpriteLibrary
             FrameHeight = fh,
             Fps = def.Fps ?? defaults.Fps,
             Loop = def.Loop ?? defaults.Loop,
+            ChonkArt = chonkArt,
         };
     }
 

@@ -55,6 +55,18 @@ public sealed class ChonkTracker
     }
 
     /// <summary>
+    /// Jumps to a size without feeding. For the self-test harness: forcing only the renderer
+    /// left the tracker holding a different level, so the next feeding snapped the cat back to
+    /// a size the harness had not asked for.
+    /// </summary>
+    public void SetLevel(int level)
+    {
+        Level = Math.Clamp(level, 0, MaxLevel);
+        FeedsAtLevel = 0;
+        _sinceChange = TimeSpan.Zero;
+    }
+
+    /// <summary>
     /// Advances the slim-down clock. Handles multi-level catch-up in one call, so an hour of
     /// away-time drops three sizes rather than one.
     /// </summary>

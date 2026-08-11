@@ -95,7 +95,7 @@ internal sealed class CatWindow : Window
         {
             if (_taskbar is null) return 0;
             var rail = _taskbar.Rail;
-            var (fatW, fatH) = ChonkStretch(_chonk);
+            var (fatW, fatH) = CurrentStretch();
             int catW = (int)Math.Round(_clip.FrameWidth * Scale * fatW);
             int catH = (int)Math.Round(_clip.FrameHeight * Scale * fatH);
             return Math.Max(0, rail.IsHorizontal ? rail.Width - catW : rail.Height - catH);
@@ -173,6 +173,14 @@ internal sealed class CatWindow : Window
         _ => (1.0, 1.0),
     };
 
+    /// <summary>
+    /// The stretch actually applied to the frame on screen. Clips with drawn chonk art are
+    /// already fat and render 1:1; stretching those too would fatten them twice. A level is a
+    /// mix — only the clips worth drawing were drawn — so this is per clip, not per level.
+    /// </summary>
+    private (double W, double H) CurrentStretch() =>
+        _clip.ChonkArt ? (1.0, 1.0) : ChonkStretch(_chonk);
+
     /// <summary>Chonk level, 0-3. Set by the controller; changes re-place the window.</summary>
     public int ChonkLevel
     {
@@ -197,6 +205,9 @@ internal sealed class CatWindow : Window
     /// <summary>Shows a specific frame of a clip. Called by the animation player.</summary>
     public void ShowClip(Clip clip, int frameIndex)
     {
+        // A drawn-chonk clip is rendered unstretched while its neighbours are stretched, so the
+        // window footprint changes on the swap even though the frame size has not.
+        bool stretchChanged = clip.ChonkArt != _clip.ChonkArt;
         bool sizeChanged = clip.FrameWidth != _clip.FrameWidth || clip.FrameHeight != _clip.FrameHeight;
         _clip = clip;
         _frame = Math.Clamp(frameIndex, 0, clip.Frames.Length - 1);
@@ -206,7 +217,7 @@ internal sealed class CatWindow : Window
         // during OnSourceInitialized *and* OnContentRendered, then 1.25 seconds later.
         // Rather than guess the right lifecycle event, notice the change and re-place.
         // This also covers the cat being dragged to a monitor with a different scale.
-        if (sizeChanged || Math.Abs(Scale - _lastScale) > 0.001)
+        if (sizeChanged || stretchChanged || Math.Abs(Scale - _lastScale) > 0.001)
         {
             Reposition();
             RaiseSpanIfChanged();
@@ -249,7 +260,7 @@ internal sealed class CatWindow : Window
 
         double scale = Scale;
         _lastScale = scale;
-        var (fatW, fatH) = ChonkStretch(_chonk);
+        var (fatW, fatH) = CurrentStretch();
         int catW = (int)Math.Round(_clip.FrameWidth * scale * fatW);
         int catH = (int)Math.Round(_clip.FrameHeight * scale * fatH);
 
@@ -319,7 +330,7 @@ internal sealed class CatWindow : Window
         // frame*scale physical) — EXCEPT when the cat is chonky, where the window is stretched
         // around the same sheet. Undo the stretch before indexing, or the mask is sampled at
         // the wrong pixel and the fat cat is unclickable down its sides.
-        var (fatW, fatH) = ChonkStretch(_chonk);
+        var (fatW, fatH) = CurrentStretch();
         int x = (int)(local.X / fatW), y = (int)(local.Y / fatH);
         if (x < 0 || y < 0 || x >= _clip.FrameWidth || y >= _clip.FrameHeight) return false;
 
