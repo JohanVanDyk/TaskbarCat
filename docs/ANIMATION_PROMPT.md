@@ -174,6 +174,7 @@ Two code-side notes:
 
 - `CatController.AwakeFps` is **15** — a 16–18 fps clip will not play at its own rate. Raise
   the awake tick to 30 for these, or the new frames get dropped and it will still look jerky.
-  Sleeping stays at 4 fps; it dominates average CPU and `sleep` at 6 fps is close enough.
+  Sleeping stays at 4 fps. It used to dominate average CPU at a 70-80% sleep share; that
+  share is now ~32%, so the awake rate matters much more than it did.
 - New clip ids need mapping in `ClipMap.ClipFor` before the behaviour engine will ever pick
   them. Unmapped clips are silently never shown — `ResolveClip` falls back to `idle_blink`.

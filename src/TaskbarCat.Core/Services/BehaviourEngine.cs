@@ -17,18 +17,23 @@ namespace TaskbarCat.Services;
 public sealed class BehaviourEngine
 {
     /// <summary>
-    /// Spec requirement #3: the cat sleeps 70–80% of the time. That is a product of
-    /// weight AND dwell, not weight alone:
+    /// How much of its life the cat spends asleep. A product of weight AND dwell, not
+    /// weight alone:
     ///
     ///     sleepShare = (Wsleep * Dsleep) / (Wsleep * Dsleep + SUM(Wi * Di))
     ///
-    /// With the Content table below: Wsleep=20, Dsleep~90s, other weights sum ~75 at a
-    /// mean dwell ~8s  =>  1800 / (1800 + 600) = 0.75. Content is the dominant mood, so
-    /// the aggregate lands in band. BehaviourEngineTests.SleepShare_IsWithinSpecBand
-    /// simulates 24h and asserts 0.70..0.80 — retune these numbers there, not by eye.
+    /// With the Content table below: Wsleep=6, Dsleep~37s, other weights sum ~75 at a
+    /// mean dwell ~8s  =>  225 / (225 + 563) = 0.29. Content is the dominant mood, so the
+    /// aggregate lands in band. BehaviourEngineTests.SleepShare_IsWithinSpecBand simulates
+    /// 24h and asserts the band — retune these numbers there, not by eye.
+    ///
+    /// The original spec asked for 70-80%, and that is what a real cat does, but watching
+    /// it is dull: the pet was a motionless loaf almost every time you looked at it. Now a
+    /// quarter to a half. The cost is CPU — the awake tick is 30fps against sleep's 4 —
+    /// so roughly double the average of the 70-80% build.
     /// </summary>
-    public const double TargetSleepShareLow = 0.70;
-    public const double TargetSleepShareHigh = 0.80;
+    public const double TargetSleepShareLow = 0.25;
+    public const double TargetSleepShareHigh = 0.45;
 
     private readonly Needs _needs;
     private readonly NeedsSimulator _sim;
@@ -48,8 +53,8 @@ public sealed class BehaviourEngine
 
         Mood = _sim.DeriveMood(_needs);
 
-        // Start awake and briefly idle, NOT asleep. Sleep dwell is 60-120s, so opening
-        // with it meant the app launched to a motionless cat for up to two minutes — the
+        // Start awake and briefly idle, NOT asleep. Sleep dwell is 25-50s, so opening
+        // with it meant the app launched to a motionless cat for the best part of a minute — the
         // worst possible first impression for a pet. The long-run sleep share is
         // unaffected; this only shapes the first few seconds.
         Current = Decide(CatAction.Idle, Facing.Right);
@@ -174,10 +179,11 @@ public sealed class BehaviourEngine
     // Static tables: allocated once at type init, never per decision. (These cannot be
     // returned as ReadOnlySpan collection expressions on C# 12 — CS9203, may escape scope.)
 
-    // Sleep weight is deliberately modest — its long dwell does the heavy lifting.
+    // Sleep weight is deliberately modest — its long dwell does the heavy lifting, so this
+    // number moves the sleep share far more than it looks like it should.
     private static readonly (CatAction Action, int Weight)[] ContentWeights =
     [
-        (CatAction.Sleep, 20), (CatAction.Idle, 22), (CatAction.SitLook, 14),
+        (CatAction.Sleep, 6), (CatAction.Idle, 22), (CatAction.SitLook, 14),
         (CatAction.Loaf, 12), (CatAction.Walk, 12), (CatAction.Groom, 8),
         (CatAction.Stretch, 5), (CatAction.Scratch, 2),
     ];
@@ -191,25 +197,25 @@ public sealed class BehaviourEngine
     private static readonly (CatAction Action, int Weight)[] HungryWeights =
     [
         (CatAction.Meow, 26), (CatAction.Walk, 22), (CatAction.SitLook, 16),
-        (CatAction.Scratch, 12), (CatAction.Idle, 12), (CatAction.Sleep, 12),
+        (CatAction.Scratch, 12), (CatAction.Idle, 12), (CatAction.Sleep, 5),
     ];
 
     private static readonly (CatAction Action, int Weight)[] DirtyWeights =
     [
         (CatAction.Groom, 40), (CatAction.Scratch, 16), (CatAction.Idle, 16),
-        (CatAction.Loaf, 14), (CatAction.Sleep, 14),
+        (CatAction.Loaf, 14), (CatAction.Sleep, 6),
     ];
 
     private static readonly (CatAction Action, int Weight)[] PlayfulWeights =
     [
         (CatAction.Play, 26), (CatAction.Pounce, 20), (CatAction.Walk, 18),
-        (CatAction.WatchCursor, 14), (CatAction.Idle, 12), (CatAction.Sleep, 10),
+        (CatAction.WatchCursor, 14), (CatAction.Idle, 12), (CatAction.Sleep, 4),
     ];
 
     private static readonly (CatAction Action, int Weight)[] AffectionateWeights =
     [
         (CatAction.Meow, 28), (CatAction.WatchCursor, 20), (CatAction.SitLook, 18),
-        (CatAction.Walk, 14), (CatAction.Happy, 10), (CatAction.Sleep, 10),
+        (CatAction.Walk, 14), (CatAction.Happy, 10), (CatAction.Sleep, 4),
     ];
 
     private static readonly (CatAction Action, int Weight)[] FallbackWeights =
@@ -252,7 +258,7 @@ public sealed class BehaviourEngine
     /// <summary>Dwell range in seconds plus whether the clip may be cut short.</summary>
     private static (double Min, double Max, bool Interruptible) ActionCatalog(CatAction action) => action switch
     {
-        CatAction.Sleep => (60, 120, true),
+        CatAction.Sleep => (25, 50, true),
         CatAction.Idle => (4, 12, true),
         CatAction.SitLook => (4, 10, true),
         CatAction.Loaf => (8, 20, true),
