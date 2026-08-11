@@ -22,8 +22,47 @@ C# / .NET 8, WPF. Windows 10 1607+ (per-monitor DPI), x64.
 
 ## Install
 
-Grab the zip from `dist/`, unpack it anywhere, run `TaskbarCat.exe`. Keep the `assets`
+Run **`TaskbarCat-Setup-<version>.exe`** from `dist/`. It installs per-user into
+`%LOCALAPPDATA%\Programs\TaskbarCat`, so there is no UAC prompt and no admin needed, and it
+offers to start the cat at sign-in.
+
+Or grab the zip instead, unpack it anywhere, and run `TaskbarCat.exe`. Keep the `assets`
 folder next to the exe — the sprites load from there.
+
+### The SmartScreen warning
+
+**The installer is not code-signed, so Windows will warn whoever runs it.** They get a blue
+"Windows protected your PC" box saying the publisher is unknown, and the Run button is hidden
+behind **More info**. Nothing is wrong with the file; Windows is telling the truth — it cannot
+tell who built it.
+
+To get past it as a recipient: **More info → Run anyway**. If it was downloaded through a
+browser it may also need unblocking first: right-click the file → Properties → tick **Unblock**
+→ OK. That clears the Mark of the Web the browser attached. (Unzipping a downloaded zip
+propagates that mark to every file inside it, which is one more reason to hand people the
+installer rather than the zip.)
+
+To make the warning stop for everyone, it has to be signed:
+
+| option | cost | what it does |
+|---|---|---|
+| **Azure Trusted Signing** | ~$10/month | Microsoft-run signing service. Cheapest real answer. Needs an identity check — an organisation with 3+ years of verifiable history, or an individual account where available. |
+| **EV code-signing certificate** | ~$300-600/year | Clears SmartScreen **immediately** on first release. Ships on a hardware token or in a cloud HSM. |
+| **OV code-signing certificate** | ~$200-400/year | Signs the file, but SmartScreen still warns until the certificate builds reputation across enough installs. Cheaper, slower, and confusing in the meantime. |
+
+A **self-signed certificate does not help.** SmartScreen trusts publishers, not signatures; a
+certificate no one trusts changes nothing, and it adds a second failure mode when the cert
+expires. Don't bother.
+
+Once there is a certificate, `tools\build_installer.ps1` takes `-SignTool` and
+`-CertThumbprint` and signs both the app exe and the setup exe — in that order, because the
+installer embeds the app, and signing only the installer leaves the thing SmartScreen watches
+long-term (the installed exe) unsigned.
+
+Expect antivirus false positives regardless of signing. An always-on-top window that reads the
+taskbar's position and writes a Run key is, structurally, what some adware does. If a scanner
+flags it, submit it to that vendor as a false positive — there is no code change that avoids
+this.
 
 Right-click the tray icon → **Start with Windows** to have it come back at logon. That writes
 the exe's current path to `HKCU\...\Run`, so re-tick it if you move the folder.
@@ -40,7 +79,13 @@ dotnet build src/TaskbarCat.App          # debug
 dotnet test  tests/TaskbarCat.Tests      # 71 tests
 powershell -File tools/publish.ps1       # self-contained exe + zip -> dist/
 powershell -File tools/publish.ps1 -FrameworkDependent   # ~1MB, needs .NET 8 Desktop Runtime
+powershell -File tools/build_installer.ps1               # publishes, then builds the installer
 ```
+
+The installer needs Inno Setup: `winget install -e --id JRSoftware.InnoSetup`.
+`installer/TaskbarCat.iss` is the script; it reads the version straight off the built exe so
+the two can never disagree, and it declares the app's single-instance mutex as `AppMutex` so
+setup asks the user to quit a running cat instead of failing partway through overwriting it.
 
 Developed from WSL against a Windows toolchain — `dotnet.exe`, `powershell.exe` and
 `python3` all work from bash, so the whole build/run/verify loop is available without

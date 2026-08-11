@@ -7,3 +7,6 @@ artifacts/
 
 # Release drop — rebuild with tools/publish.ps1
 dist/
+
+# Inno Setup scratch
+installer/Output/
