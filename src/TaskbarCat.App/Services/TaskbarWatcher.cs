@@ -14,8 +14,15 @@ namespace TaskbarCat.App.Services;
 /// </summary>
 internal sealed class TaskbarWatcher : IDisposable
 {
+    /// <summary>
+    /// How far the bar must have slid on-screen to count as revealed. An auto-hidden bar keeps
+    /// a couple of pixels showing as the hover target, so "any of it visible" is not the test.
+    /// </summary>
+    private const int RevealedMarginPx = 8;
+
     private readonly IntPtr _hwnd;
     private readonly uint _callbackMessage;
+    private IntPtr _trayHwnd;
     private bool _registered;
 
     public TaskbarWatcher(IntPtr hwnd)
@@ -32,9 +39,54 @@ internal sealed class TaskbarWatcher : IDisposable
         _registered = Win32.SHAppBarMessage(Win32.ABM_NEW, ref data) != IntPtr.Zero;
 
         Rail = Query();
+        BarRevealed = QueryRevealed();
     }
 
     public TaskbarRail Rail { get; private set; }
+
+    /// <summary>
+    /// True while the bar is actually on screen. Always true for a bar that does not auto-hide;
+    /// for one that does, it tracks the slide in and out.
+    /// </summary>
+    public bool BarRevealed { get; private set; } = true;
+
+    /// <summary>Raised when the bar slides in or out.</summary>
+    public event Action<bool>? BarRevealedChanged;
+
+    /// <summary>
+    /// Polls the bar's real position. Called from the cat's own tick rather than run on a timer
+    /// of its own: it is two syscalls, and it must not fire while the app is asleep at 4fps and
+    /// the cat is not being drawn anyway.
+    /// </summary>
+    public void PollReveal()
+    {
+        bool revealed = QueryRevealed();
+        if (revealed == BarRevealed) return;
+        BarRevealed = revealed;
+        BarRevealedChanged?.Invoke(revealed);
+    }
+
+    private bool QueryRevealed()
+    {
+        // A bar that never hides is always there; do not pay for the lookup.
+        if (!Rail.IsAutoHide) return true;
+
+        if (_trayHwnd == IntPtr.Zero)
+            _trayHwnd = Win32.FindWindow("Shell_TrayWnd", null);
+        if (_trayHwnd == IntPtr.Zero || !Win32.GetWindowRect(_trayHwnd, out var r))
+            return false;
+
+        // Hidden means slid off its own edge. Compare against the rail the shell reports rather
+        // than the screen: on a multi-monitor desktop the bar's edge is not the screen's.
+        return Rail.Edge switch
+        {
+            TaskbarEdge.Bottom => r.Top <= Rail.Bottom - RevealedMarginPx,
+            TaskbarEdge.Top => r.Bottom >= Rail.Top + RevealedMarginPx,
+            TaskbarEdge.Left => r.Right >= Rail.Left + RevealedMarginPx,
+            TaskbarEdge.Right => r.Left <= Rail.Right - RevealedMarginPx,
+            _ => true,
+        };
+    }
 
     /// <summary>Raised when the rail actually moves — not on every notification.</summary>
     public event Action<TaskbarRail>? RailChanged;

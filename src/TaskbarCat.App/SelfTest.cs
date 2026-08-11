@@ -139,6 +139,8 @@ internal static class SelfTest
             sb.AppendLine($"rail.edge={r.Edge}");
             sb.AppendLine($"rail.rect={r.Left},{r.Top},{r.Right},{r.Bottom}");
             sb.AppendLine($"rail.autohide={r.IsAutoHide}");
+            sb.AppendLine($"bar.revealed={window.BarRevealed}");
+            sb.AppendLine($"perch={window.Perch:F2}");
         }
         else
         {

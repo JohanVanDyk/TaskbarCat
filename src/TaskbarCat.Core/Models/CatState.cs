@@ -17,6 +17,9 @@ public enum CatAction
     Meow,
     Happy,
     WatchCursor,
+
+    /// <summary>Got a fright. Only ever reached from a stimulus, never chosen at random.</summary>
+    Startled,
 }
 
 public enum Facing
@@ -50,6 +53,15 @@ public enum Stimulus
     CursorLeft,
     TaskbarIconNearby,
     Woken,
+
+    /// <summary>An auto-hide taskbar slid into view — something to hop up onto.</summary>
+    TaskbarRose,
+
+    /// <summary>It slid away again while the cat was awake enough to jump down deliberately.</summary>
+    TaskbarFell,
+
+    /// <summary>The floor vanished from under a sleeping cat.</summary>
+    Startled,
 }
 
 /// <summary>The engine's output for one decision. The view layer only ever consumes this.</summary>

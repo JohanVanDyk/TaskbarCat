@@ -123,8 +123,12 @@ public sealed class BehaviourEngine
         // Direct user actions always win — an unresponsive pet reads as broken, so they
         // cut through both a running one-shot and sleep. Ambient stimuli wait their turn.
         var stimulus = _pending.Peek();
+        // Startled belongs here even though the user did not cause it: the whole point is that
+        // it happens TO a sleeping cat, so a rule that lets sleep ignore it would delete the
+        // feature. TaskbarRose/Fell likewise — the ground moved, the cat cannot sleep through it.
         bool isUserAction = stimulus is Stimulus.Petted or Stimulus.Brushed
-            or Stimulus.Fed or Stimulus.PlayToyOffered or Stimulus.Woken;
+            or Stimulus.Fed or Stimulus.PlayToyOffered or Stimulus.Woken
+            or Stimulus.Startled or Stimulus.TaskbarRose or Stimulus.TaskbarFell;
 
         if (!isUserAction && (!Current.Interruptible || IsSleeping))
         {
@@ -148,6 +152,11 @@ public sealed class BehaviourEngine
         Stimulus.PlayToyOffered => CatAction.Play,
         Stimulus.Woken => CatAction.Stretch,
         Stimulus.TaskbarIconNearby => CatAction.Pounce,
+        // The bar arriving is something to hop onto; the bar vanishing underfoot is a fall.
+        // Which one the cat gets depends on whether it saw it coming, decided by the caller.
+        Stimulus.TaskbarRose => CatAction.Pounce,
+        Stimulus.TaskbarFell => CatAction.Pounce,
+        Stimulus.Startled => CatAction.Startled,
         Stimulus.CursorNearby => _rng.NextDouble() < 0.6 ? CatAction.WatchCursor : CatAction.SitLook,
         Stimulus.CursorLeft => null,
         _ => null,
@@ -272,6 +281,7 @@ public sealed class BehaviourEngine
         CatAction.Eat => (4.0, 4.0, false),
         CatAction.Meow => (2.5, 2.5, false),
         CatAction.Happy => (2.0, 2.0, false),
+        CatAction.Startled => (1.6, 1.6, false),
         _ => (5, 5, true),
     };
 
@@ -308,6 +318,9 @@ public static class ClipMap
         CatAction.Meow => "paw_screen",                                     // was meow_attention, 3 frames
         CatAction.Happy => "happy_hearts",
         CatAction.WatchCursor => "cursor_interaction",
+        // No dedicated fright sheet yet; zoomies is the most agitated art there is, and its
+        // opening frames are a crouch and a puff. ResolveClip falls back if "fright" ever lands.
+        CatAction.Startled => "zoomies",
         _ => "idle_blink",
     };
 }

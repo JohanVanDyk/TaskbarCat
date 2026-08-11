@@ -35,12 +35,16 @@ public static class RailPlacement
     /// <paramref name="along"/> is 0..1 from the rail's left/top end.
     ///
     /// The cat rests ON the bar's outer face — on a bottom taskbar it stands on the bar's
-    /// top edge, so it overlaps the desktop, not the buttons. An auto-hidden bar has
-    /// slid off-screen, so we clamp back to the screen edge instead of following it.
+    /// top edge, so it overlaps the desktop, not the buttons.
+    ///
+    /// An auto-hide bar is the interesting case. While it is hidden it has slid off-screen and
+    /// the cat clamps back to the screen edge; while it is REVEALED the cat stands on it like
+    /// any other bar. <paramref name="barRevealed"/> is what tells the two apart — without it
+    /// the bar slides up and covers the cat.
     /// </summary>
     public static (int X, int Y) Resting(
         TaskbarRail rail, int catWidth, int catHeight, double along,
-        int screenWidth, int screenHeight)
+        int screenWidth, int screenHeight, bool barRevealed = false)
     {
         along = Math.Clamp(along, 0.0, 1.0);
 
@@ -53,7 +57,7 @@ public static class RailPlacement
                 ? rail.Top - catHeight
                 : rail.Bottom;
 
-            if (rail.IsAutoHide)
+            if (rail.IsAutoHide && !barRevealed)
                 y = rail.Edge == TaskbarEdge.Bottom ? screenHeight - catHeight : 0;
 
             return (x, y);
@@ -66,7 +70,7 @@ public static class RailPlacement
             ? rail.Right
             : rail.Left - catWidth;
 
-        if (rail.IsAutoHide)
+        if (rail.IsAutoHide && !barRevealed)
             cx = rail.Edge == TaskbarEdge.Left ? 0 : screenWidth - catWidth;
 
         return (cx, cy);

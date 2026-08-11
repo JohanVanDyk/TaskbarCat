@@ -47,6 +47,7 @@ internal sealed class CatWindow : Window
     private double _lastScale;
     private double _lastSpan = -1;
     private int _chonk;
+    private double _perch;      // 0 = screen edge, 1 = on top of the bar
     private RadialMenu? _menu;
 
     public CatWindow(SpriteLibrary sprites, string assetsRoot)
@@ -87,6 +88,15 @@ internal sealed class CatWindow : Window
     public event Action<string>? MenuChosen;
 
     public TaskbarRail? Rail => _taskbar?.Rail;
+
+    /// <summary>True while the taskbar is on screen. Always true for a bar that does not hide.</summary>
+    public bool BarRevealed => _taskbar?.BarRevealed ?? true;
+
+    /// <summary>Raised when an auto-hide bar slides in or out.</summary>
+    public event Action<bool>? BarRevealedChanged;
+
+    /// <summary>Checks whether the bar has slid. Driven from the controller's tick.</summary>
+    public void PollTaskbarReveal() => _taskbar?.PollReveal();
 
     /// <summary>Travelable pixels along the rail, i.e. rail length minus the cat's width.</summary>
     public double TravelSpan
@@ -150,6 +160,11 @@ internal sealed class CatWindow : Window
         _taskbar = new TaskbarWatcher(_hwnd);
         _taskbar.RailChanged += _ => { Reposition(); RaiseSpanIfChanged(); };
         _taskbar.FullScreenChanged += full => Visibility = full ? Visibility.Hidden : Visibility.Visible;
+        _taskbar.BarRevealedChanged += revealed =>
+        {
+            BarRevealedChanged?.Invoke(revealed);
+            RaiseSpanIfChanged();
+        };
 
         Reposition();
         RaiseSpanIfChanged();
@@ -180,6 +195,22 @@ internal sealed class CatWindow : Window
     /// </summary>
     private (double W, double H) CurrentStretch() =>
         _clip.ChonkArt ? (1.0, 1.0) : ChonkStretch(_chonk);
+
+    /// <summary>
+    /// How far the cat has climbed onto a revealed auto-hide taskbar: 0 on the screen edge,
+    /// 1 standing on the bar. Driven by PerchAnimator, so it passes 1 briefly at the top of
+    /// the jump and the cat rises above the bar before settling onto it.
+    /// </summary>
+    public double Perch
+    {
+        get => _perch;
+        set
+        {
+            if (Math.Abs(value - _perch) < 0.0005) return;
+            _perch = value;
+            Reposition();
+        }
+    }
 
     /// <summary>Chonk level, 0-3. Set by the controller; changes re-place the window.</summary>
     public int ChonkLevel
@@ -267,7 +298,14 @@ internal sealed class CatWindow : Window
         int screenW = (int)Math.Round(SystemParameters.PrimaryScreenWidth * scale);
         int screenH = (int)Math.Round(SystemParameters.PrimaryScreenHeight * scale);
 
-        var (x, y) = RailPlacement.Resting(_taskbar.Rail, catW, catH, _alongRail, screenW, screenH);
+        // Lerp between standing on the screen edge and standing on the bar. Doing it here, on
+        // two full placements, keeps the maths edge-agnostic: a bottom bar lifts the cat, a top
+        // bar pushes it down, and neither this nor the animator has to know which.
+        var down = RailPlacement.Resting(_taskbar.Rail, catW, catH, _alongRail, screenW, screenH, false);
+        var up = RailPlacement.Resting(_taskbar.Rail, catW, catH, _alongRail, screenW, screenH, true);
+
+        int x = down.X + (int)Math.Round((up.X - down.X) * _perch);
+        int y = down.Y + (int)Math.Round((up.Y - down.Y) * _perch);
 
         // Size AND position in physical pixels: no DIP round-tripping, no drift at
         // 125%/150%, and the sprite lands on its pixel grid unscaled.

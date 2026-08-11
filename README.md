@@ -4,6 +4,10 @@ A cat that lives on your Windows taskbar. It sleeps, walks, grooms, gets hungry,
 when you feed, brush, pet or play with it. Click it for the radial menu — Feed, Brush, Pet,
 Play, Customize, Close. Right-click the tray icon to reposition, toggle autostart, or quit.
 
+**It rides the taskbar.** When an auto-hide taskbar slides up, the cat jumps on top of it and
+carries on there — walking, sleeping, everything. When the bar slides away it jumps back down,
+unless it was asleep, in which case the floor vanishes from under it and it drops with a fright.
+
 **Overfeed it and it gets fat.** Every 3 feedings the cat goes up a size, to a maximum of 3
 sizes. It works back down one size per 20 minutes without being fed, and the size persists
 across restarts — time the app was closed counts toward slimming, so a cat left for a week is
@@ -32,7 +36,7 @@ unhandled exception is appended to `crash.log` beside it. Delete the settings fo
 
 ```powershell
 dotnet build src/TaskbarCat.App          # debug
-dotnet test  tests/TaskbarCat.Tests      # 58 tests
+dotnet test  tests/TaskbarCat.Tests      # 71 tests
 powershell -File tools/publish.ps1       # self-contained exe + zip -> dist/
 powershell -File tools/publish.ps1 -FrameworkDependent   # ~1MB, needs .NET 8 Desktop Runtime
 ```
@@ -71,6 +75,12 @@ toggles autostart.
 
 The radial menu closes as soon as it loses focus, so a capture script has to poll for it
 rather than sleep for a fixed time and shoot once.
+
+Windows sends **no** notification when an auto-hide bar slides in or out — `ABN_STATECHANGE`
+fires when the auto-hide *setting* changes, not when the bar moves — so `TaskbarWatcher` polls
+`Shell_TrayWnd`'s real rect from the cat's own tick and compares it against the rail the shell
+reports. Comparing against the screen instead breaks on multi-monitor, where the bar's edge is
+not the screen's.
 
 `tools/capture_window.ps1` screenshots the cat (`PrintWindow` with
 `PW_RENDERFULLCONTENT` — BitBlt silently skips layered windows), and

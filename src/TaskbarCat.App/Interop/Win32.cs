@@ -85,6 +85,18 @@ internal static class Win32
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool SystemParametersInfo(uint uiAction, uint uiParam, ref RECT pvParam, uint fWinIni);
 
+    /// <summary>
+    /// The shell's taskbar window. Needed because an auto-hide bar sliding in or out sends NO
+    /// appbar notification — ABN_STATECHANGE fires when the auto-hide SETTING changes, not when
+    /// the bar moves — so the only way to know it is on screen is to look at where it is.
+    /// </summary>
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    internal static extern IntPtr FindWindow(string? lpClassName, string? lpWindowName);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
     internal const uint SPI_GETWORKAREA = 0x0030;
 
     // ---- icons ----

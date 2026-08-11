@@ -111,6 +111,43 @@ public class BehaviourEngineTests
     }
 
     [Fact]
+    public void FloorVanishingUnderASleepingCat_Startles_It()
+    {
+        // The taskbar sliding away is not a user action, but it must still cut through sleep:
+        // the whole point of the fright is that it happens TO a sleeping cat.
+        var engine = SleepingEngine();
+
+        engine.Notify(Stimulus.Startled);
+        var decision = engine.Tick(Tick);
+
+        Assert.NotNull(decision);
+        Assert.Equal(CatAction.Startled, decision!.Value.Action);
+        Assert.False(engine.IsSleeping);
+    }
+
+    [Fact]
+    public void TaskbarArriving_MakesTheCatHopOntoIt()
+    {
+        var engine = SleepingEngine();
+
+        engine.Notify(Stimulus.TaskbarRose);
+        var decision = engine.Tick(Tick);
+
+        Assert.Equal(CatAction.Pounce, decision!.Value.Action);
+    }
+
+    [Fact]
+    public void Startled_IsNeverChosenAtRandom()
+    {
+        // It has no weight in any mood table, so a cat can only be startled by something
+        // happening to it — a fright that fired on its own would be nonsense.
+        var engine = new BehaviourEngine(new Needs(), new NeedsSimulator(), new FakeClock(), new Random(3));
+
+        for (int i = 0; i < 200_000; i++)
+            Assert.NotEqual(CatAction.Startled, engine.Tick(Tick)?.Action ?? engine.Action);
+    }
+
+    [Fact]
     public void UserAction_InterruptsSleepImmediately()
     {
         var engine = SleepingEngine();

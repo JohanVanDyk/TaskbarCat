@@ -26,6 +26,7 @@ internal sealed class CatController : IDisposable
     private readonly AnimationPlayer _animation;
     private readonly NeedsSimulator _sim;
     private readonly ChonkTracker _chonk;
+    private readonly PerchAnimator _perch = new();
     private readonly Needs _needs;
     private readonly Settings _settings;
     private readonly SettingsStore _store;
@@ -87,6 +88,13 @@ internal sealed class CatController : IDisposable
         _motion.PlaceAt(settings.AlongRail);
         _window.SetAlong(_motion.Along);
         _window.ChonkLevel = _chonk.Level;
+
+        // Start already standing wherever the bar currently is, rather than animating up on
+        // launch: the cat should appear in place, not vault onto a bar it was never off.
+        _perch.Snap(_window.BarRevealed ? 1 : 0);
+        _window.Perch = _perch.Progress;
+        _window.BarRevealedChanged += OnBarRevealedChanged;
+
         _window.ShowClip(_animation.Clip, _animation.FrameIndex);
 
         _timer = new DispatcherTimer(DispatcherPriority.Render);
@@ -175,6 +183,25 @@ internal sealed class CatController : IDisposable
 
     private void OnCatClicked() => _window.ShowRadialMenu();
 
+    /// <summary>
+    /// The taskbar slid in or out. Going up is always a deliberate hop. Coming down depends on
+    /// whether the cat was asleep: an awake cat jumps off, a sleeping one has the floor removed
+    /// from under it and drops, faster, with a fright.
+    /// </summary>
+    private void OnBarRevealedChanged(bool revealed)
+    {
+        if (revealed)
+        {
+            _perch.MoveTo(1, PerchAnimator.JumpUpDuration);
+            _engine.Notify(Stimulus.TaskbarRose);
+            return;
+        }
+
+        bool wasAsleep = _engine.IsSleeping;
+        _perch.MoveTo(0, wasAsleep ? PerchAnimator.StartledDropDuration : PerchAnimator.FallDownDuration);
+        _engine.Notify(wasAsleep ? Stimulus.Startled : Stimulus.TaskbarFell);
+    }
+
     private void Tick()
     {
         var now = DateTime.UtcNow;
@@ -190,6 +217,16 @@ internal sealed class CatController : IDisposable
         // Slimming runs on wall-clock time including any suspend, so a laptop shut for an hour
         // wakes a slimmer cat. Both slices count: the clamped one is still real elapsed time.
         _chonk.Tick(dt + away);
+
+        // Poll before the engine ticks: if the bar just moved, the cat should react on this
+        // frame rather than one frame into an action it would not have chosen.
+        _window.PollTaskbarReveal();
+
+        if (_perch.IsMoving)
+        {
+            _perch.Tick(dt);
+            _window.Perch = _perch.Progress;
+        }
 
         _engine.Tick(dt);
 
