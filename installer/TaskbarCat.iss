@@ -98,11 +98,15 @@ begin
     StatePath := ExpandConstant('{userappdata}\TaskbarCat');
     if DirExists(StatePath) then
     begin
-      if MsgBox('Also delete your cat''s saved state?' + #13#10#13#10 +
+      // SuppressibleMsgBox, NOT MsgBox, and the suppressed answer is explicitly IDNO.
+      // A plain MsgBox under /SUPPRESSMSGBOXES deleted the state anyway — an unattended
+      // uninstall silently destroyed a cat somebody had named and fed. Keeping it is the
+      // only safe default when there is no one there to ask.
+      if SuppressibleMsgBox('Also delete your cat''s saved state?' + #13#10#13#10 +
                 'This is its name, coat, size and how hungry it is, in' + #13#10 +
                 StatePath + #13#10#13#10 +
                 'Choose No to keep it for next time.',
-                mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+                mbConfirmation, MB_YESNO or MB_DEFBUTTON2, IDNO) = IDYES then
         DelTree(StatePath, True, True, True);
     end;
   end;
