@@ -281,6 +281,8 @@ public sealed class BehaviourEngine
         CatAction.Eat => (4.0, 4.0, false),
         CatAction.Meow => (2.5, 2.5, false),
         CatAction.Happy => (2.0, 2.0, false),
+        // 16 frames at 10fps. Matched to the clip so it plays out exactly once and the
+        // last frame — a normal seated pose — is what the cat cuts away from.
         CatAction.Startled => (1.6, 1.6, false),
         _ => (5, 5, true),
     };
@@ -318,9 +320,7 @@ public static class ClipMap
         CatAction.Meow => "paw_screen",                                     // was meow_attention, 3 frames
         CatAction.Happy => "happy_hearts",
         CatAction.WatchCursor => "cursor_interaction",
-        // No dedicated fright sheet yet; zoomies is the most agitated art there is, and its
-        // opening frames are a crouch and a puff. ResolveClip falls back if "fright" ever lands.
-        CatAction.Startled => "zoomies",
+        CatAction.Startled => "fright",
         _ => "idle_blink",
     };
 }

@@ -226,6 +226,15 @@
       "loop": true,
       "interruptible": true,
       "notes": "Generated sheet, re-registered to the 160x128 grid by tools/ingest_sheet.py. Frame count is what the model actually drew, not what the brief asked for."
+    },
+    {
+      "id": "fright",
+      "sheet": "fright.png",
+      "frames": 16,
+      "fps": 10,
+      "loop": false,
+      "interruptible": false,
+      "notes": "One-shot. 16 frames at 10fps = 1.6s, matched to the Startled dwell so the clip finishes exactly as the action ends and the cat cuts to its seated pose. The brief asked for 18; the model drew 16, and the count must follow the sheet."
     }
   ],
   "faces": {

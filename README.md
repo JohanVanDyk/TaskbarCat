@@ -6,7 +6,8 @@ Play, Customize, Close. Right-click the tray icon to reposition, toggle autostar
 
 **It rides the taskbar.** When an auto-hide taskbar slides up, the cat jumps on top of it and
 carries on there — walking, sleeping, everything. When the bar slides away it jumps back down,
-unless it was asleep, in which case the floor vanishes from under it and it drops with a fright.
+unless it was asleep, in which case the floor vanishes from under it and it drops with a
+fright — a one-shot clip that lands, bristles, checks where the floor went, and recovers.
 
 **Overfeed it and it gets fat.** Every 3 feedings the cat goes up a size, to a maximum of 3
 sizes. It works back down one size per 20 minutes without being fed, and the size persists
