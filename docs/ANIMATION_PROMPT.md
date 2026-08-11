@@ -235,6 +235,63 @@ returns 1.0 for any level whose art is complete.
 `ingest_sheet.py` normalises scale by HEIGHT, which preserves a wider-but-not-taller cat — do
 not "fix" that or it will slim the chonk art back down on ingest.
 
+---
+
+## Fourth brief: the fright
+
+When an auto-hide taskbar slides away under a SLEEPING cat, the floor vanishes and the cat
+drops with a fright (`CatAction.Startled`). There is no art for it, so it currently borrows
+`zoomies` — the most agitated sheet available, but it is a running loop, and what the moment
+needs is a drop, a landing and a recovery.
+
+This is the one clip in the app that is a **one-shot with a beginning and an end**, not a loop.
+The engine holds the action for 1.6s and ends it on clip completion, so it must resolve back to
+a normal seated pose or the cat snaps out of it.
+
+Attach `style_reference.png` and `idle_blink_reference.png` (the seated pose it recovers to)
+from `Downloads\taskbar_cat_chonk_refs`.
+
+> Continuing the same cat and the same sprite sheets. Match the attached reference exactly:
+> soft painterly cel shading, large glossy eyes with a bright highlight, warm orange tabby over
+> a cream chest and paws, no hard outline.
+>
+> One clip, **`fright`** — 18 frames, ONE-SHOT (it does NOT loop; it starts in the air and ends
+> settled). The cat was asleep on a ledge that vanished from under it. Beat by beat:
+>
+> - **Frames 1-3, the drop.** Airborne and falling, body stretched, legs splayed out and
+>   reaching for ground that is not there, eyes snapping open wide, ears already flattening.
+>   These frames sit HIGHER in the box than the rest — the cat has not landed yet.
+> - **Frames 4-5, impact.** Hard landing. Squash the body flat and wide, legs braced and
+>   buckling, head pushed down into the shoulders, tail slamming out for balance.
+> - **Frames 6-10, the fright itself.** The pose that has to sell it: crouched low to the
+>   ground, back arched, **fur spiked out all over so the silhouette is visibly bristled**,
+>   tail fat as a bottlebrush and straight up, ears flat back against the skull, pupils blown
+>   huge and round, mouth open in a small startled gasp. Hold it with only a tiny tremble
+>   between frames — a freeze reads as more frightened than a wobble.
+> - **Frames 11-14, the check.** Still low, but the head turns to look at where the floor went,
+>   ears lifting a little, fur beginning to settle.
+> - **Frames 15-18, recovery.** Rises back to the normal seated pose from the attached
+>   `idle_blink` sheet, fur flat, ears up, one last flick of the tail. **Frame 18 must match the
+>   seated pose closely enough to cut straight to it**, since that is the clip the cat returns
+>   to.
+>
+> Keep it comic and cute, never distressed — a cat that got a fright and is embarrassed about
+> it, not a cat in pain.
+>
+> Output rules, unchanged: one PNG, horizontal strip, each frame exactly 160 x 128 px,
+> transparent RGBA, no shadow or backdrop, cat centred, same body scale as the reference. Feet
+> land on y = 118 from frame 4 onward; the first three frames are airborne and sit above that.
+> Small eased increments between frames.
+>
+> Name the file `fright.png` and state the frame count and intended playback fps.
+
+### Wiring it in
+
+`ingest_sheet.py` already expects `fright` at 18 frames. After ingest, add it to
+`sprites.json` with `"loop": false, "interruptible": false`, re-run `make_preset.py` for the
+other two coats, and point the engine at it — `ClipMap.ClipFor` currently reads
+`CatAction.Startled => "zoomies"` and becomes `=> "fright"`. Nothing else changes.
+
 ## Wiring the results in
 
 Drop the PNGs into `assets/cat/orange_white/` and add each clip to `assets/sprites.json`:

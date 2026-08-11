@@ -70,6 +70,8 @@ CLIPS = {
     "loaf": 12,
     "stretch_yawn": 14,
     "cursor_interaction": 14,
+    # fright brief — the drop when an auto-hide taskbar vanishes under a sleeping cat
+    "fright": 18,
 }
 
 
