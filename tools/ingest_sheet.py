@@ -45,6 +45,15 @@ DST = ROOT / "assets" / "cat" / "orange_white"
 FRAME_W, FRAME_H = 160, 128
 BASELINE_Y = 118          # where the feet belong
 TARGET_MEDIAN_H = 96      # median cat height after scaling, in frame pixels
+TARGET_MEDIAN_W = 106     # the same, by width, for --sprawl. Measured off the installed
+                          # sprawled clips (run/walk/zoomies/pounce/play_yarn median ~106px),
+                          # so fat art lands at the length the thin art already has.
+                          # Only a fallback now: a --sprawl chonk ingest sizes each clip
+                          # against its own thin sheet, see SPRAWL_FAT_W.
+
+SPRAWL_FAT_W = 1.15       # how much wider than its own thin sheet a fat sprawled clip lands.
+                          # A fat sprawled cat is barely longer - the weight goes into the
+                          # barrel, not the length - so this stays near 1.
 MAX_CAT_W = 150           # keep clear of the frame edges
 
 ALPHA_MIN = 16            # below this a pixel is background
@@ -54,11 +63,11 @@ MERGE_GAP_PX = 10         # a detached tail tip should not become its own frame
 # name -> expected frame count, from the brief
 # Only sheets present in SRC are processed, so both briefs can share this list.
 CLIPS = {
-    "run_right": 12,
-    "run_left": 12,
+    "run_right": 11,
+    "run_left": 10,
     "scratch_icons": 14,
-    "zoomies": 16,
-    "jump": 10,
+    "zoomies": 13,
+    "jump": 9,
     "sleep": 12,
     "paw_screen": 14,
     "watch_bug": 18,
@@ -71,11 +80,15 @@ CLIPS = {
     "stretch_yawn": 14,
     "cursor_interaction": 14,
     # fright brief — the drop when an auto-hide taskbar vanishes under a sleeping cat
-    "fright": 18,
+    "fright": 16,
     # toy mode
     "reach_up": 14,
-    "play_yarn": 16,
+    "play_yarn": 14,
     "confused": 14,
+    # sixth brief — the sprawled movement clips
+    "walk_left": 4,
+    "walk_right": 6,
+    "play_pounce": 4,
 }
 
 # The toys are not cats: 64x64, and they float at the pointer rather than standing on a
@@ -300,6 +313,18 @@ def ingest_toys(args) -> int:
     return 0
 
 
+def frame_widths(sheet: pathlib.Path) -> list[int]:
+    """Opaque width of each frame of an INSTALLED strip, i.e. one already on the 160x128 grid."""
+    im = Image.open(sheet).convert("RGBA")
+    a = np.array(im)[:, :, 3]
+    out = []
+    for i in range(a.shape[1] // FRAME_W):
+        cols = np.nonzero((a[:, i * FRAME_W:(i + 1) * FRAME_W] > ALPHA_MIN).any(axis=0))[0]
+        if len(cols):
+            out.append(int(cols.max() - cols.min()))
+    return out or [FRAME_W]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--write", action="store_true", help="write strips into assets/")
@@ -309,6 +334,10 @@ def main() -> int:
                     help="chonk level: reads <clip>_chonkN.png and writes into assets/cat/<preset>/chonkN/")
     ap.add_argument("--toys", action="store_true",
                     help="ingest the 64x64 toy sprites into assets/toys/ instead of cat clips")
+    ap.add_argument("--sprawl", action="store_true",
+                    help="normalise scale by WIDTH, not height. Required for chonk art of the "
+                         "sprawled clips (runs, walks, zoomies, pounce, play_yarn): those are "
+                         "drawn fat by deepening the belly, so height-normalising undoes it")
     args = ap.parse_args()
 
     if args.src:
@@ -334,9 +363,23 @@ def main() -> int:
 
     # One scale for every clip, from the median cat height across all frames of all clips.
     # Per-clip scaling would blow up the curled sleep pose and shrink the stretched jump.
+    #
+    # --sprawl normalises by WIDTH instead, and it is required for chonk art of the sprawled
+    # clips. Those poses are drawn fat by deepening the belly, so the fat cat is taller and
+    # barely wider than the thin one; normalising its HEIGHT back to the usual median scales the
+    # belly straight back out and returns the thin cat. Width is the stable axis there, because
+    # a fat sprawled cat is not longer. Do not use it for the seated clips, where the reverse
+    # holds and height is what stays put.
     all_h = [b[5] - b[4] for _, boxes in measured.values() for b in boxes]
     median_h = float(np.median(all_h))
     scale = TARGET_MEDIAN_H / median_h
+
+    all_w = [b[2] - b[0] for _, boxes in measured.values() for b in boxes]
+    median_w = float(np.median(all_w))
+
+    if args.sprawl:
+        scale = TARGET_MEDIAN_W / median_w
+        print(f"--sprawl: normalising by width (median {median_w:.0f}px -> {TARGET_MEDIAN_W}px)")
 
     widest = max((b[2] - b[0]) for _, boxes in measured.values() for b in boxes)
     if widest * scale > MAX_CAT_W:
@@ -363,8 +406,25 @@ def main() -> int:
         # global median, but only partway (exponent < 1): a full correction would stretch the
         # curled sleeping cat to the height of a sitting one and flatten the poses that are
         # SUPPOSED to differ.
-        clip_median = float(np.median(heights))
-        clip_scale = scale * (median_h / clip_median) ** 0.6
+        if args.sprawl:
+            widths = [b[2] - b[0] for b in boxes]
+            clip_median = float(np.median(widths))
+
+            # Size the fat cat against the SAME clip's installed thin sheet, not against a
+            # global median. The thin sheets are not drawn at a common size - walk_right is
+            # 125px wide where zoomies is 90 - so one shared target fattened zoomies by 1.18x,
+            # run_right by 1.03x and walk_right by 0.85x, i.e. the fat walking cat came out
+            # SMALLER than the thin one. Per-clip is the only thing that holds the weight
+            # consistent across clips, which is the whole point of the exercise.
+            thin = DST / f"{name}.png"
+            if thin.exists():
+                thin_w = np.median(frame_widths(thin))
+                clip_scale = (thin_w * SPRAWL_FAT_W) / clip_median
+            else:
+                clip_scale = scale * (median_w / clip_median) ** 0.6
+        else:
+            clip_median = float(np.median(heights))
+            clip_scale = scale * (median_h / clip_median) ** 0.6
 
         # The clip's own ground line. Median, not min: one airborne frame must not drag the
         # whole clip down, and one crouch must not lift it.

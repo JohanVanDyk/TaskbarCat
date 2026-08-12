@@ -356,3 +356,119 @@ Two code-side notes:
   share is now ~32%, so the awake rate matters much more than it did.
 - New clip ids need mapping in `ClipMap.ClipFor` before the behaviour engine will ever pick
   them. Unmapped clips are silently never shown — `ResolveClip` falls back to `idle_blink`.
+
+---
+
+## Sixth brief: chonk for the movement clips
+
+This **supersedes batches 2 and 3 of the fifth brief for the sprawled clips**, which asked for
+all ten in one go and described "fatter" the same way for every pose. That description is wrong
+for half of them, and the reason is measurable.
+
+Measure the mean opaque bounding box of every frame of a clip and the poses split cleanly in two:
+
+| pose | clips | bbox aspect (w/h) |
+|---|---|---|
+| upright | `idle_blink`, `loaf`, `groom`, `eat`, `watch_bug`, `sit_look`, `reach_up`, … | 0.60 – 1.12 |
+| **sprawl** | `play_pounce` 1.44, `sleep` 1.44, `walk_left` 1.38, `run_left` 1.37, `run_right` 1.30, `walk_right` 1.28, `zoomies` 1.21, `play_yarn` 1.17 | above 1.15 |
+
+For an upright cat the bbox width IS its girth, so a fat one is ~1.58x wider — which is what the
+drawn chonk3 sheets came out at, and what the stretch fallback now imitates. For a sprawled cat
+the bbox width is nose-to-tail LENGTH, and a fat cat is not longer. The one sprawled pose that
+was already drawn fat proves it: `sleep` at chonk3 measures **1.14x wide and 1.20x tall** against
+its normal sheet, where the upright poses measure 1.58 x 1.18.
+
+So a chonky running cat is a **deeper** cat, not a wider one, and no amount of stretching gets
+there — `ChonkVisuals` can only thicken the whole frame, which drags the head and legs with it.
+That is why these need drawing.
+
+### What to ask for
+
+Seven sheets per level, fourteen in total. Frame counts are from `assets/sprites.json` and must
+match EXACTLY or the fat cat animates at a different speed to the thin one:
+
+| clip | frames | fps |
+|---|---|---|
+| `run_right` | 11 | 16 |
+| `run_left` | 10 | 16 |
+| `zoomies` | 13 | 18 |
+| `play_yarn` | 14 | 12 |
+| `walk_right` | 6 | 14 |
+| `walk_left` | 4 | 14 |
+| `play_pounce` | 4 | 16 |
+
+Note these differ from the counts in `ingest_sheet.py`'s `CLIPS` table (run 12/12, zoomies 16),
+which were the numbers the *brief* asked for rather than what came back. Update that table to the
+manifest's numbers before ingesting, or the ingest will split the strip wrongly.
+
+Attach three files per request: `style_reference.png`, the clip's own normal-weight sheet, and
+**`sleep_chonk3.png`** — that last one is the weight reference, and it matters more here than in
+the earlier briefs because it is the only fat sprawled cat that exists. Without it the model
+reaches for the seated chonk look and returns a long cat instead of a deep one.
+
+> Continuing the same cat and the same sprite sheets. I am attaching the reference sheet for this
+> clip at the cat's normal weight, and a sheet of the same cat overfed while lying down. Draw the
+> SAME clip, same number of frames, same poses, same timing, with the overfed cat.
+>
+> This cat is stretched out along the ground — running, walking or pouncing — and that changes
+> what "fatter" means. **Read this part carefully, it is the whole job:**
+>
+> - The cat does NOT get longer. Nose to tail-tip stays the length it is in the reference. A fat
+>   cat is not a stretched cat, and making it longer is the single most common way to get this
+>   wrong.
+> - The BARREL gets deeper. The body thickens top to bottom: the back rises, the belly drops and
+>   hangs below the line of the legs, and the chest fills out. Seen from the side the silhouette
+>   goes from a lean tube to a heavy oval.
+> - The BELLY swings and lags. On a run cycle it should carry a little momentum — dropping on the
+>   landing frames, lifting on the push-off — a beat behind the legs. This one detail is what
+>   sells the weight in motion.
+> - The HEAD stays exactly the same size, and so do the eyes, ears and paws. Cheeks a little
+>   fuller and a soft double chin, nothing more.
+> - The LEGS look shorter and stubbier because the body hangs lower over them, and the stride
+>   shortens to match — a fat cat's run is busier and covers less ground per step. Keep the same
+>   number of frames; just make the reach of each step smaller.
+> - The TAIL thickens at the base and stays the same length.
+> - Keep it cute, healthy and pleased with itself. Never sickly, never sad, never struggling.
+>
+> **Two weights, delivered as separate sheets:**
+> - **Level 2 (chunky)** — clearly heavier: belly visible below the leg line, back broader.
+> - **Level 3 (chonkiest)** — comically heavy: the belly nearly brushes the ground at the bottom
+>   of the stride, legs half-swallowed, still unmistakably the same cat mid-run.
+>
+> **Output rules, unchanged:** one PNG per clip per level, horizontal strip, each frame exactly
+> 160 x 128 px, transparent RGBA, no shadow or backdrop, feet on y = 118 in every frame, small
+> eased increments between frames, loops seamlessly, and the cat must not touch the frame edges.
+> The fat version should be roughly the same WIDTH as the reference and noticeably TALLER —
+> around 1.15x the width and 1.25x the height of the thin cat's bounding box. If your fat cat is
+> much wider than the thin one, it is longer rather than fatter and is wrong.
+>
+> Match the attached sheet frame for frame: frame 3 of the fat version is the same beat of the
+> same action as frame 3 of the thin one.
+>
+> Name the files `<clip>_chonk2.png` and `<clip>_chonk3.png`. State the frame count for each and
+> confirm it matches the reference.
+
+### Ingest — the trap that is specific to these
+
+`ingest_sheet.py` normalises scale by median **height**. For the seated clips that was the right
+call and the third brief says not to "fix" it: a fat seated cat is wider but no taller, so
+height-normalising preserves the fatness.
+
+**For these clips it does the opposite.** A fat sprawled cat is *taller* and barely wider, so
+normalising its height back to `TARGET_MEDIAN_H` scales the belly straight back out and hands you
+the thin cat again. Ingest them with the `--sprawl` flag, which normalises by width instead:
+
+```bash
+python3 tools/ingest_sheet.py --write --chonk 3 --sprawl --src ~/Downloads/chonk3_sprawl
+```
+
+### Wiring the results in
+
+Drop the strips into `assets/cat/orange_white/chonk2/` and `chonk3/` under the plain clip name;
+`SpriteLibrary.Load` prefers the chonk directory per clip and falls back to the normal sheet, so
+a half-finished batch still runs. No manifest change is needed — these clips already carry
+`"sprawl": true`, which only drives the fallback stretch and is ignored once real art exists.
+
+Re-run `python3 tools/make_preset.py` afterwards to derive the grey and blue coats, then check
+`cat.chonkart` in the self-test report: it counts clips loaded from drawn art, and should climb
+by seven per level.
