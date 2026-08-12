@@ -34,6 +34,15 @@ internal sealed class ToyController : IDisposable
 
     public bool IsActive => Active != ToyKind.None;
 
+    /// <summary>
+    /// True once the cat has the yarn in its paws: the pointer is a pointer again and the
+    /// overlay is gone, but the cat is still wrestling and toy mode has not formally ended.
+    /// </summary>
+    private bool _caught;
+
+    /// <summary>Yarn catches this session. Reported by the self-test; survives <see cref="Stop"/>.</summary>
+    public int Catches { get; private set; }
+
     /// <summary>Raised when the mode ends, however it ended.</summary>
     public event Action? Stopped;
 
@@ -46,6 +55,7 @@ internal sealed class ToyController : IDisposable
         if (!_sprites.TryGetValue(NameOf(kind), out var sprite)) return;
 
         Active = kind;
+        _caught = false;
         _chase.Reset();
 
         _overlay ??= new ToyOverlayWindow();
@@ -56,11 +66,26 @@ internal sealed class ToyController : IDisposable
         _hook.Install();
     }
 
+    /// <summary>
+    /// Hands the desktop back its pointer and takes the toy off screen, WITHOUT ending toy mode.
+    /// Split out of <see cref="Stop"/> because a caught yarn needs exactly this half: the cat is
+    /// still being driven by the chase while it wrestles, so the mode cannot end yet.
+    /// </summary>
+    private void Release()
+    {
+        // Same order as Stop: unhook first so no click arrives mid-teardown, cursor back before
+        // the overlay goes so there is never a frame with neither a pointer nor a toy on screen.
+        _hook.Uninstall();
+        ToyCursorService.Restore();
+        _overlay?.Hide();
+    }
+
     public void Stop()
     {
         if (!IsActive) return;
 
         Active = ToyKind.None;
+        _caught = false;
         _chase.Reset();
 
         // Order matters on the way out: unhook first so no click can arrive mid-teardown, and
@@ -82,10 +107,36 @@ internal sealed class ToyController : IDisposable
         if (!IsActive || _overlay is null) return null;
         if (!Win32.GetCursorPos(out var p)) return null;
 
-        _overlay.Follow(p.X, p.Y, dt);
+        if (!_caught) _overlay.Follow(p.X, p.Y, dt);
 
         var frame = new ToyFrame(p.X, p.Y, catCentreX, catTop, catBottom, railLeft, railRight);
-        return _chase.Update(dt, Active, frame);
+        var decision = _chase.Update(dt, Active, frame);
+
+        // Caught, and it is a real object rather than a dot of light: the cat now HAS it, so it
+        // stops being the pointer this instant. The overlay and the hidden cursor go immediately
+        // while the wrestle plays out, otherwise a yarn ball is still trailing the mouse at the
+        // same time as the cat is holding it. The laser is exempt - there is nothing to take.
+        if (!_caught && Active == ToyKind.Yarn && decision.Response == ToyResponse.Play)
+        {
+            _caught = true;
+            Catches++;
+            Release();
+        }
+
+        // The wrestle is over and the cat has had its yarn: end the mode for real. Another ball
+        // has to be picked from the wheel, which is the point - a yarn that respawned under the
+        // pointer forever made catching it mean nothing.
+        //
+        // This has to come AFTER the update, not before it. ToyChase ends the hold from inside
+        // Update and returns Chase on that same tick, so checking first let one frame of chase
+        // through and the cat set off after a yarn that was no longer on screen.
+        if (_caught && !_chase.InReaction)
+        {
+            Stop();
+            return null;
+        }
+
+        return decision;
     }
 
     public bool InReaction => _chase.InReaction;

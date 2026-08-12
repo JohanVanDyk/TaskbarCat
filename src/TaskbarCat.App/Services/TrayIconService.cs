@@ -58,12 +58,16 @@ internal sealed class TrayIconService : IDisposable
     public string IconSource { get; }
 
     /// <summary>
-    /// Puts the cat's name on the tray tooltip. Without this, naming your cat in Customize
-    /// changes nothing you can ever see. NotifyIcon.Text throws above 63 chars.
+    /// Puts the cat's name and how it is doing on the tray tooltip — "Mochi is hungry".
+    ///
+    /// This is the only passive readout of the meters: everything else needs the user to open
+    /// the wheel first. The text arrives already built and already length-capped by
+    /// <see cref="TaskbarCat.Services.MoodReport.TrayText"/>; the guard here is belt-and-braces
+    /// because NotifyIcon.Text throws above 63 characters and would take the app down with it.
     /// </summary>
-    public void SetLabel(string name)
+    public void SetStatus(string text)
     {
-        var text = string.IsNullOrWhiteSpace(name) ? "Taskbar Cat" : $"{name.Trim()} — Taskbar Cat";
+        if (string.IsNullOrWhiteSpace(text)) text = "Taskbar Cat";
         _icon.Text = text.Length <= 63 ? text : text[..63];
     }
 

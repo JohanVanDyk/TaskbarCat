@@ -7,7 +7,12 @@ Play, Customize, Close. Right-click the tray icon to reposition, toggle autostar
 **Toy mode.** Pick the yarn or the laser from the wheel and the mouse pointer *becomes* the
 toy. The cat chases it along the taskbar, rears up and bats at it when you hold it overhead,
 and wrestles the yarn when it catches it. Catching the laser gets it a pounce and then a look
-of profound confusion, because there was never anything there. **Right-click anywhere cancels.**
+of profound confusion, because there was never anything there. **Right-click anywhere cancels**,
+and so does picking anything else from the wheel — except the other toy, which swaps it.
+
+**Catch the yarn and that ball is done.** The pointer goes back to being a pointer the instant
+the cat gets its paws on it, the cat wrestles what it caught, and playing again means fetching
+another ball from the wheel. The laser never ends this way — there is nothing to take.
 
 **It rides the taskbar.** When an auto-hide taskbar slides up, the cat jumps on top of it and
 carries on there — walking, sleeping, everything. When the bar slides away it jumps back down,
@@ -18,6 +23,17 @@ fright — a one-shot clip that lands, bristles, checks where the floor went, an
 sizes. It works back down one size per 20 minutes without being fed, and the size persists
 across restarts — time the app was closed counts toward slimming, so a cat left for a week is
 its normal shape again.
+
+**You can see what it wants.** The tray tooltip says how the cat is doing in words — *Mochi is
+starving and grubby* — and opening the wheel draws each need as a ring around the button that
+refills it: Feed, Brush, Pet. The ring fills clockwise with how satisfied that need is and
+reddens as it empties, and the single most pressing one pulses. Rest is in the headline rather
+than on a button, because going to sleep is the cat's decision and not yours.
+
+The ring you are told to press is always the need actually driving the cat's behaviour — the
+priority order is `NeedsSimulator.DeriveMood`'s, and a test walks 4096 combinations of the four
+meters asserting the two agree. A wheel that pointed somewhere else would be telling the user to
+do something that changes nothing on screen.
 
 **Customize** names the cat and picks its coat. Both apply live: the name shows on the tray
 tooltip, and the coat swaps without restarting or interrupting what the cat is doing. Cancel
@@ -81,7 +97,7 @@ unhandled exception is appended to `crash.log` beside it. Delete the settings fo
 
 ```powershell
 dotnet build src/TaskbarCat.App          # debug
-dotnet test  tests/TaskbarCat.Tests      # 71 tests
+dotnet test  tests/TaskbarCat.Tests      # 93 tests
 powershell -File tools/publish.ps1       # self-contained exe + zip -> dist/
 powershell -File tools/publish.ps1 -FrameworkDependent   # ~1MB, needs .NET 8 Desktop Runtime
 powershell -File tools/build_installer.ps1               # publishes, then builds the installer
@@ -117,10 +133,16 @@ usual ways to check a GUI are closed off. The app reports on itself instead:
 ```
 
 That runs for N seconds, writes the resolved taskbar rail, DPI scale, window placement, needs,
-name, coat, tray icon source and the action trace to a file, then exits. Extra flags:
+the mood phrase and top want those needs produce, name, coat, tray icon source and the action
+trace to a file, then exits. The derived lines are there so a harness can catch the tooltip and
+the wheel disagreeing with the meters, which the raw numbers alone cannot show. Extra flags:
 `--selftest-stimulus=feed,pet` fires menu actions on a timer, `--selftest-menu` opens the
-radial menu, `--selftest-customize` opens the Customize dialog, `--selftest-name=` and
-`--selftest-coat=` drive what that dialog drives, `--selftest-chonk=0..3` forces the overfed
+radial menu, `--selftest-choose=feed,play` picks wheel items through the real handler (the
+buttons cannot be clicked headlessly, and this is what exercises a choice made *while a toy is
+out*), `--selftest-customize` opens the Customize dialog, `--selftest-name=` and
+`--selftest-coat=` drive what that dialog drives, `--selftest-needs=fullness:8,affection:20` drives the meters straight to a value, which is the
+only way to photograph a starving cat without waiting half a day for one (it persists, like any
+other run), `--selftest-chonk=0..3` forces the overfed
 size (feeding nine times and waiting an hour is the alternative), `--selftest-toy=yarn|laser`
 starts toy mode (and the harness always stops it before reporting, so a self-test can never
 leave the desktop without a pointer), and `--selftest-startup=on|off` toggles autostart.
@@ -155,8 +177,35 @@ a sheet goes missing. `docs/ANIMATION_PROMPT.md` is the brief they were generate
 `tools/ingest_sheet.py` is what turns a generated canvas into a conforming strip.
 
 Chonk levels 2 and 3 have **drawn art** for the six clips the cat spends its time in, under
-`assets/cat/<preset>/chonk2/` and `chonk3/`. Everything else — level 1, and the other nine
-clips at any level — falls back to stretching the normal sheet (`CatWindow.ChonkStretch`).
+`assets/cat/<preset>/chonk2/` and `chonk3/`. Everything else — level 1, and the other nineteen
+clips at any level — falls back to stretching the normal sheet (`ChonkVisuals.Stretch`).
+
+That stretch is **measured off the drawn art, and depends on the pose**. Widening a cat that is
+stretched out along the ground makes it longer rather than fatter, so clips flagged `"sprawl"`
+in the manifest (both runs, both walks, zoomies, pounce, play_yarn, sleep — everything whose mean
+opaque bbox is wider than it is tall) thicken downward instead: ~1.16x across and 1.26x down at
+level 3, against 1.58x across and 1.19x down for an upright pose. Recalibrating this is what
+stopped a maxed-out cat visibly slimming the moment it started moving.
+
+The seven sprawled clips now have **derived** chonk sheets instead of relying on that stretch —
+`tools/make_chonk.py` grows the whole cat to the same size the stretch gave it and then deepens
+the barrel on top, protecting the head and tail, which a frame-wide scale cannot do. Totals land
+on the drawn art's ratios (1.16 wide, 1.27 tall at level 3, against `sleep`'s 1.14 / 1.20):
+
+```bash
+python3 tools/make_chonk.py                     # both levels, every sprawled clip
+python3 tools/make_preset.py grey_white --name "Grey & White" --sat 0.16 --val 0.92
+```
+
+It refuses to overwrite drawn art, so `sleep` keeps its real sheets, and re-running
+`make_preset.py` carries the results into the grey and blue coats.
+
+**It is still a stand-in.** Resampling only moves pixels that already exist, and a genuinely fat
+cat has a belly hanging below the line of its legs — there is nothing down there to stretch, so
+what comes out is a deep-backed cat rather than a heavy-bellied one. The real fix is drawn sheets
+for these clips: **sixth brief** in `docs/ANIMATION_PROMPT.md`, ingest with
+`tools/ingest_sheet.py --chonk N --sprawl` (the `--sprawl` flag matters — see the brief), drop
+into `chonk2/`/`chonk3/` and they take over automatically, `make_chonk.py` included.
 A clip loaded from drawn art renders 1:1; stretching it as well would fatten it twice, so the
 decision is per clip, not per level. Drop more sheets into those folders and they take over
 automatically.

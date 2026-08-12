@@ -62,6 +62,16 @@ public sealed class ClipDef
     public AttachmentDef? Bubble { get; init; }
     public AttachmentDef? Prop { get; init; }
     public string? Notes { get; init; }
+
+    /// <summary>
+    /// True when the cat is drawn stretched out along the ground — running, walking, sleeping,
+    /// pouncing — rather than sitting or standing.
+    ///
+    /// It only affects how an overfed cat with no drawn art is stretched, and it matters because
+    /// widening a sprawled pose makes the cat LONGER, not fatter. See <see cref="ChonkVisuals"/>.
+    /// Measured, not judged: mean opaque bbox width over height per clip, sprawl above ~1.15.
+    /// </summary>
+    public bool Sprawl { get; init; }
 }
 
 /// <summary>Per-frame translation baked into a walk clip, so gait and travel stay in sync.</summary>

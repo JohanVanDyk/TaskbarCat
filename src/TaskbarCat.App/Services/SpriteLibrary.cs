@@ -24,6 +24,13 @@ internal sealed class Clip
     /// chonk art must NOT be stretched on top of that, or it is fattened twice.
     /// </summary>
     public bool ChonkArt { get; init; }
+
+    /// <summary>
+    /// True for poses drawn stretched out along the ground. Decides which way an overfed cat is
+    /// stretched when this clip has no drawn chonk art: across for an upright pose, downward for
+    /// a sprawled one, because widening a sprawl makes the cat longer rather than fatter.
+    /// </summary>
+    public bool Sprawl { get; init; }
 }
 
 /// <summary>
@@ -137,6 +144,7 @@ internal sealed class SpriteLibrary
             Fps = def.Fps ?? defaults.Fps,
             Loop = def.Loop ?? defaults.Loop,
             ChonkArt = chonkArt,
+            Sprawl = def.Sprawl,
         };
     }
 

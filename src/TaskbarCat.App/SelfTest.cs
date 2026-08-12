@@ -67,6 +67,18 @@ internal static class SelfTest
                 if (int.TryParse(arg["--selftest-chonk=".Length..], out var lvl))
                     controller.ForceChonk(lvl);
             }
+            else if (arg.StartsWith("--selftest-needs=", StringComparison.OrdinalIgnoreCase))
+            {
+                // --selftest-needs=fullness:8,affection:12 — the meters are otherwise only
+                // reachable by waiting half a day for them to drain, which makes the mood
+                // readouts unphotographable. Note this DOES persist, like every other run.
+                foreach (var pair in arg["--selftest-needs=".Length..].Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var bits = pair.Split(':', 2);
+                    if (bits.Length == 2 && double.TryParse(bits[1], out var v))
+                        controller.ForceNeed(bits[0], v);
+                }
+            }
             else if (arg.StartsWith("--selftest-toy=", StringComparison.OrdinalIgnoreCase))
             {
                 var want = arg["--selftest-toy=".Length..].Trim();
@@ -105,6 +117,34 @@ internal static class SelfTest
         var trace = new List<string>();
         controller.ActionChanged += (action, mood, clip) =>
             trace.Add($"{DateTime.UtcNow:HH:mm:ss.fff} {action} mood={mood} clip={clip}");
+
+        // --selftest-choose=feed picks wheel items on a timer, spaced across the run. This is how
+        // "choosing an item while a toy is out" gets tested at all: the choice has to travel
+        // through the real handler, which is what decides whether toy mode ends.
+        var choices = new List<string>();
+        foreach (var arg in args)
+        {
+            if (!arg.StartsWith("--selftest-choose=", StringComparison.OrdinalIgnoreCase)) continue;
+            choices.AddRange(arg["--selftest-choose=".Length..]
+                .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(c => c.Trim()));
+        }
+
+        for (int i = 0; i < choices.Count; i++)
+        {
+            var id = choices[i];
+            var pick = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(Math.Max(0.5, seconds * (i + 1) / (choices.Count + 1.0))),
+            };
+            pick.Tick += (_, _) =>
+            {
+                pick.Stop();
+                trace.Add($"{DateTime.UtcNow:HH:mm:ss.fff} CHOOSE {id}");
+                window.ChooseMenuItem(id);
+            };
+            pick.Start();
+        }
 
         for (int i = 0; i < stimuli.Count; i++)
         {
@@ -171,6 +211,9 @@ internal static class SelfTest
         sb.AppendLine($"cat.chonk={controller.ChonkLevel}");
         sb.AppendLine($"cat.chonkart={controller.ChonkArtClips}");
         sb.AppendLine($"toy.active={toys.Active}");
+        // Catches survives the harness stopping toy mode, so it is the only way to tell from a
+        // report whether the yarn was actually caught and released.
+        sb.AppendLine($"toy.catches={toys.Catches}");
         sb.AppendLine($"toy.yarnart={toys.CanStart(ToyKind.Yarn)} toy.laserart={toys.CanStart(ToyKind.Laser)}");
         sb.AppendLine($"cat.action={controller.Action}");
         sb.AppendLine($"cat.mood={controller.Mood}");
@@ -180,6 +223,11 @@ internal static class SelfTest
         sb.AppendLine($"needs.cleanliness={controller.Needs.Cleanliness:F1}");
         sb.AppendLine($"needs.affection={controller.Needs.Affection:F1}");
         sb.AppendLine($"needs.tiredness={controller.Needs.Tiredness:F1}");
+        // What the USER would see, not just the raw meters — the tooltip and the wheel's marker
+        // are derived, and a harness that only checks the numbers cannot catch them disagreeing.
+        sb.AppendLine($"mood.phrase={controller.Status.Phrase}");
+        sb.AppendLine($"mood.headline={controller.Status.Headline}");
+        sb.AppendLine($"mood.topwant={controller.Status.TopWant?.Kind.ToString() ?? "none"}");
         sb.AppendLine($"settings.path={controller.SettingsPath}");
         sb.AppendLine($"tray.icon={tray.IconSource}");
         sb.AppendLine($"startup.supported={StartupService.IsSupported}");

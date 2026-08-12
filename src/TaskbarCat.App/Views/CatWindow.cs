@@ -6,6 +6,7 @@ using System.Windows.Media;
 using TaskbarCat.App.Interop;
 using TaskbarCat.App.Services;
 using TaskbarCat.Models;
+using TaskbarCat.Services;
 
 // UseWindowsForms (for the tray icon) drags System.Drawing/System.Windows.Forms into
 // scope, which collides with WPF on Image/Application/MessageBox. Alias, don't guess.
@@ -146,6 +147,21 @@ internal sealed class CatWindow : Window
     /// </summary>
     internal int ClickCount { get; private set; }
     internal int MenuOpenCount { get; private set; }
+
+    /// <summary>
+    /// Supplies the cat's needs when the wheel opens. A pull rather than a pushed snapshot:
+    /// the meters move every tick, and the menu must show them as they are at the click, not
+    /// as they were when someone last remembered to update this window.
+    /// </summary>
+    public Func<MoodSnapshot>? MoodProvider { get; set; }
+
+    /// <summary>
+    /// Fires a menu choice as if it had been clicked. Self-test only: the wheel's buttons cannot
+    /// be clicked headlessly — the taskbar is auto-hide, so moving the pointer to the cat's row
+    /// pops the bar up over it and eats the click — and this is the only path that exercises
+    /// what a choice does to the rest of the app rather than just what the wheel draws.
+    /// </summary>
+    internal void ChooseMenuItem(string id) => MenuChosen?.Invoke(id);
     internal int RawButtonMessages { get; private set; }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -174,22 +190,15 @@ internal sealed class CatWindow : Window
     }
 
     /// <summary>
-    /// How much wider and taller the sprite is drawn, by chonk level. An overfed cat is drawn
-    /// from the same sheets, stretched — mostly outward, a little upward, which is how a fat
-    /// cat actually differs from a thin one.
+    /// How much wider and taller the sprite is drawn, by chonk level, for clips with no drawn
+    /// chonk art. The table lives in Core (<see cref="ChonkVisuals"/>) because it is measured
+    /// off the art rather than chosen, and because it has to be checkable without a window.
     ///
     /// Stretching rather than drawing three more sets of sheets is a deliberate trade: it is
     /// 45 sheets per chonk level otherwise, across every clip and every coat, and every one of
-    /// them would have to stay in sync with the others. If drawn chonk art ever lands, this is
-    /// the seam to replace — nothing else knows the cat is fat.
+    /// them would have to stay in sync with the others.
     /// </summary>
-    private static (double W, double H) ChonkStretch(int level) => level switch
-    {
-        1 => (1.10, 1.02),
-        2 => (1.22, 1.05),
-        3 => (1.36, 1.09),
-        _ => (1.0, 1.0),
-    };
+    private (double W, double H) ChonkStretch(int level) => ChonkVisuals.Stretch(level, _clip.Sprawl);
 
     /// <summary>
     /// The stretch actually applied to the frame on screen. Clips with drawn chonk art are
@@ -239,9 +248,10 @@ internal sealed class CatWindow : Window
     /// <summary>Shows a specific frame of a clip. Called by the animation player.</summary>
     public void ShowClip(Clip clip, int frameIndex)
     {
-        // A drawn-chonk clip is rendered unstretched while its neighbours are stretched, so the
-        // window footprint changes on the swap even though the frame size has not.
-        bool stretchChanged = clip.ChonkArt != _clip.ChonkArt;
+        // A drawn-chonk clip is rendered unstretched while its neighbours are stretched, and an
+        // upright pose is stretched across where a sprawled one is stretched down, so the window
+        // footprint changes on either swap even though the frame size has not.
+        bool stretchChanged = clip.ChonkArt != _clip.ChonkArt || clip.Sprawl != _clip.Sprawl;
         bool sizeChanged = clip.FrameWidth != _clip.FrameWidth || clip.FrameHeight != _clip.FrameHeight;
         _clip = clip;
         _frame = Math.Clamp(frameIndex, 0, clip.Frames.Length - 1);
@@ -282,7 +292,7 @@ internal sealed class CatWindow : Window
         };
 
         MenuOpenCount++;
-        _menu = new RadialMenu(_assetsRoot, items);
+        _menu = new RadialMenu(_assetsRoot, items, MoodProvider?.Invoke());
         _menu.Chosen += id => MenuChosen?.Invoke(id);
         _menu.Closed += (_, _) => _menu = null;
 

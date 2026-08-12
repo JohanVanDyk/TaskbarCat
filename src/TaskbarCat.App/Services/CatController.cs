@@ -29,6 +29,7 @@ internal sealed class CatController : IDisposable
     private readonly PerchAnimator _perch = new();
     private ToyController? _toys;
     private CatAction _toyAction = CatAction.Idle;
+    private Facing _toyFacing = Facing.Right;
     private bool _toyDriving;
     private readonly Needs _needs;
     private readonly Settings _settings;
@@ -39,6 +40,7 @@ internal sealed class CatController : IDisposable
     private DateTime _lastTick = DateTime.UtcNow;
     private DateTime _lastSave = DateTime.UtcNow;
     private int _currentFps;
+    private string? _lastStatus;
 
     public CatController(CatWindow window, SpriteLibrary sprites, SettingsStore store, Settings settings,
         Func<string, int, SpriteLibrary> loadSprites)
@@ -76,6 +78,9 @@ internal sealed class CatController : IDisposable
 
         _animation.Completed += _engine.OnClipCompleted;
         _engine.DecisionChanged += OnDecisionChanged;
+
+        // The wheel pulls the meters at the moment it opens rather than being handed a stale copy.
+        _window.MoodProvider = () => Status;
 
         _window.SpanChanged += span =>
         {
@@ -174,6 +179,25 @@ internal sealed class CatController : IDisposable
         _chonk.SetLevel(level);
         ReloadSprites(_settings.ColorPreset, level);
         _window.ChonkLevel = level;
+    }
+
+    /// <summary>
+    /// Drives a meter straight to a value. Self-test only, and the same bargain as
+    /// <see cref="ForceChonk"/>: the honest way to photograph a starving cat is to wait about
+    /// eleven hours for one.
+    /// </summary>
+    public void ForceNeed(string meter, double value)
+    {
+        // Needs.Clamp is internal to Core, so clamp here rather than widen it for a harness.
+        value = Math.Clamp(value, 0, 100);
+        switch (meter.Trim().ToLowerInvariant())
+        {
+            case "fullness": _needs.Fullness = value; break;
+            case "cleanliness": _needs.Cleanliness = value; break;
+            case "affection": _needs.Affection = value; break;
+            case "tiredness": _needs.Tiredness = value; break;
+            case "weight": _needs.Weight = value; break;
+        }
     }
 
     public string Name => _settings.Name;
@@ -295,7 +319,31 @@ internal sealed class CatController : IDisposable
             _lastSave = now;
             Persist();
         }
+
+        PublishStatus();
     }
+
+    /// <summary>
+    /// Raises <see cref="StatusChanged"/> only when the words would actually change.
+    ///
+    /// The meters move on every one of the 30 ticks a second; the tooltip they feed changes a
+    /// few times an hour. Comparing the rendered line is what keeps a shell API call off the
+    /// animation path.
+    /// </summary>
+    private void PublishStatus()
+    {
+        var snapshot = MoodReport.Snapshot(_settings.Name, _needs);
+        if (snapshot.Headline == _lastStatus) return;
+
+        _lastStatus = snapshot.Headline;
+        StatusChanged?.Invoke(snapshot);
+    }
+
+    /// <summary>Current needs, phrased for a human. What the tray tooltip and the wheel show.</summary>
+    public MoodSnapshot Status => MoodReport.Snapshot(_settings.Name, _needs);
+
+    /// <summary>Raised when the cat's state would read differently to the user.</summary>
+    public event Action<MoodSnapshot>? StatusChanged;
 
     /// <summary>
     /// Feeds one frame of toy chasing. Returns true while a toy is driving the cat.
@@ -336,10 +384,21 @@ internal sealed class CatController : IDisposable
         else
             _motion.Stop();
 
-        if (action != _toyAction)
+        // Re-resolve the clip when the action changes — and, during a chase, when the cat turns
+        // round. The second half is not optional: a chase stays CatAction.ChaseToy for its whole
+        // length, so the cat kept whichever run clip it happened to start with, and carrying the
+        // pointer past it made it run backwards after the toy all the way to the other end.
+        // MotionController.Facing was right the entire time; only the clip was stale.
+        //
+        // IsWalking gates it because WalkTo leaves Facing untouched once inside ArrivalSlack —
+        // without that, a toy hovering right over the cat could flip the clip every frame.
+        var facing = _motion.Facing;
+        bool turned = action == CatAction.ChaseToy && _motion.IsWalking && facing != _toyFacing;
+
+        if (action != _toyAction || turned)
         {
             _toyAction = action;
-            var facing = _motion.Facing;
+            _toyFacing = facing;
             var clip = ResolveClip(new BehaviourDecision(action, facing, TimeSpan.Zero, true, null));
             _animation.Play(clip);
             _window.ShowClip(_animation.Clip, _animation.FrameIndex);

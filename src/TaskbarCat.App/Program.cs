@@ -81,8 +81,10 @@ internal static class Program
             onExit: Quit,
             onReposition: () => window.Reposition());
 
-        tray.SetLabel(controller.Name);
-        controller.Renamed += tray.SetLabel;
+        // The tooltip follows the meters, not just the name: a rename changes the headline too,
+        // so one subscription covers both.
+        tray.SetStatus(controller.Status.Headline);
+        controller.StatusChanged += s => tray.SetStatus(s.Headline);
 
         void SetCoat(string presetId)
         {
@@ -111,6 +113,14 @@ internal static class Program
 
         window.MenuChosen += id =>
         {
+            // Picking anything ends toy mode first. While a toy is out it drives the cat every
+            // frame, so Feed/Brush/Pet reached the engine and then had their animation
+            // overwritten before it could be seen — the menu looked broken — and Customize
+            // opened a dialog with the system cursor still hidden, leaving the user clicking
+            // blind. Choosing the OTHER toy is a switch rather than an exit: Start swaps the
+            // sprite itself, and stopping first would flash the pointer back for a frame.
+            if (id != "play" && id != "laser") toys.Stop();
+
             switch (id)
             {
                 case "customize": ShowCustomize(); break;

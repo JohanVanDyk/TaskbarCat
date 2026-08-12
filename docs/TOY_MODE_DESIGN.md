@@ -59,6 +59,12 @@ mode is active and removed the moment it ends.
 
 A hook that is slow blocks the entire desktop's input, so it does no work beyond a flag check.
 
+**Choosing anything else from the wheel also cancels.** Toy mode drives the cat every frame, so
+Feed, Brush and Pet reached the engine and then had their animation overwritten before it could
+be seen — the menu appeared to do nothing — and Customize opened a dialog while the system
+cursor was still hidden, leaving the user clicking blind. Picking the *other* toy is the one
+exception: that is a switch, and `Start` swaps the sprite without the pointer flashing back.
+
 ## The chase
 
 `ToyChase` compares the toy's position to the cat's rail:
@@ -72,6 +78,18 @@ A hook that is slow blocks the entire desktop's input, so it does no work beyond
 
 The laser is the one with a joke in it: the pounce always "succeeds" and always fails, because
 there is nothing to catch. Catching it plays `jump`, then `confused`, then back to normal.
+
+**Catching the yarn ends the mode; catching the laser does not.** The yarn is a real object, so
+the moment the cat has it the pointer stops being a toy — cursor restored, overlay hidden, hook
+removed — while the wrestle plays out, and toy mode ends when the wrestle does. Another ball has
+to be picked from the wheel. A yarn that respawned under the pointer forever made catching it
+mean nothing, and left a ball trailing the mouse at the same time as the cat was holding one.
+The laser is exempt because there was never anything to take.
+
+That release is `Release()` rather than `Stop()`: the cat is still driven by the chase while it
+wrestles, so the mode cannot end yet. The end-of-wrestle check must run AFTER `ToyChase.Update` —
+the hold expires inside `Update`, which returns `Chase` on that same tick, so checking first let
+one frame of chase through and the cat set off after a yarn that was no longer on screen.
 
 New actions never enter the mood weight tables — like `Startled`, they can only happen because
 something is happening TO the cat.

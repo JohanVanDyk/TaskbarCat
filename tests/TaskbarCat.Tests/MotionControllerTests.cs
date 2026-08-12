@@ -108,4 +108,44 @@ public class MotionControllerTests
         // 100 px/s for 0.5s = 50px, unless the randomly chosen target was nearer.
         Assert.InRange(m.Position, 0, 50);
     }
+
+    /// <summary>
+    /// The contract toy mode's run clip depends on: carrying the toy past the cat must flip
+    /// Facing, on the retarget and on every tick after it. The clip is chosen from this, and a
+    /// chase that ignored it had the cat running backwards after the pointer.
+    /// </summary>
+    [Fact]
+    public void WalkTo_AcrossTheCat_FlipsFacing()
+    {
+        var m = Make(span: 1000);
+        m.SpeedPixelsPerSecond = 200;
+        m.PlaceAt(0.5);
+
+        m.WalkTo(0.9);
+        Assert.Equal(Facing.Right, m.Facing);
+
+        // The toy is carried to the cat's other side.
+        m.WalkTo(0.1);
+        Assert.Equal(Facing.Left, m.Facing);
+
+        m.Tick(TimeSpan.FromSeconds(0.1));
+        Assert.Equal(Facing.Left, m.Facing);
+    }
+
+    /// <summary>
+    /// A toy hovering on top of the cat must not flip it: WalkTo inside ArrivalSlack leaves
+    /// facing alone, which is what stops the run clip strobing left/right every frame.
+    /// </summary>
+    [Fact]
+    public void WalkTo_WithinArrivalSlack_LeavesFacingAlone()
+    {
+        var m = Make(span: 1000);
+        m.PlaceAt(0.5);
+        m.WalkTo(0.9);
+        Assert.Equal(Facing.Right, m.Facing);
+
+        m.WalkTo(0.5 - 0.005);   // 5px away on a 1000px rail: inside the 12px slack
+        Assert.Equal(Facing.Right, m.Facing);
+        Assert.False(m.IsWalking);
+    }
 }

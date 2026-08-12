@@ -9,11 +9,15 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using TaskbarCat.Models;
+using TaskbarCat.Services;
 
 using Brushes = System.Windows.Media.Brushes;
 using Color = System.Windows.Media.Color;
 using Image = System.Windows.Controls.Image;
 using Point = System.Windows.Point;
+// UseWindowsForms + UseWPF: System.Drawing.Size is an int pair, System.Windows.Size a double
+// pair, and ImplicitUsings pulls in both.
+using Size = System.Windows.Size;
 using Cursors = System.Windows.Input.Cursors;
 // System.Windows.Shapes.Path (the shape) vs System.IO.Path (the file helper) — this file
 // wants the file helper, and the Shapes namespace is imported for Ellipse.
@@ -33,13 +37,26 @@ internal sealed class RadialMenu : Window
     private const double MinRadius = 86;
     private const double IconSize = 54;
 
+    /// <summary>
+    /// How far the "the cat wants this" halo sits outside a button, and therefore how much
+    /// slack the window needs beyond the arc. Without it the halo on the lowest button is
+    /// sheared off by the window edge — the wheel's own bounds clip it, transparency and all.
+    /// </summary>
+    private const double HaloPad = 8;
+
     private readonly Canvas _canvas = new();
     private readonly double _radius;
+    private readonly MoodSnapshot? _mood;
     private bool _closing;
     private bool _armed;
 
-    public RadialMenu(string assetsRoot, IReadOnlyList<(string Id, string Label, Stimulus? Stimulus)> items)
+    public RadialMenu(
+        string assetsRoot,
+        IReadOnlyList<(string Id, string Label, Stimulus? Stimulus)> items,
+        MoodSnapshot? mood = null)
     {
+        _mood = mood;
+
         // Titled so tooling can find it; no chrome ever shows it to the user.
         Title = "TaskbarCatMenu";
         WindowStyle = WindowStyle.None;
@@ -57,8 +74,8 @@ internal sealed class RadialMenu : Window
         double needed = IconSize * 1.18 * Math.Max(1, items.Count - 1) / Math.PI;
         _radius = Math.Max(MinRadius, needed);
 
-        Width = _radius * 2 + IconSize + 24;
-        Height = _radius + IconSize + 24;
+        Width = _radius * 2 + IconSize + 24 + HaloPad * 2;
+        Height = _radius + IconSize + 24 + HaloPad;
         Content = _canvas;
 
         Build(assetsRoot, items);
@@ -104,7 +121,7 @@ internal sealed class RadialMenu : Window
         double centreX = Width / 2;
         // Pull the arc's centre up by half an icon: the icons at the ends of the sweep
         // sit level with it, and anchoring at the very bottom clipped them in half.
-        double centreY = Height - IconSize / 2 - 6;
+        double centreY = Height - IconSize / 2 - 6 - HaloPad;
 
         for (int i = 0; i < n; i++)
         {
@@ -113,7 +130,7 @@ internal sealed class RadialMenu : Window
             double x = centreX + Math.Cos(angle) * _radius - IconSize / 2;
             double y = centreY - Math.Sin(angle) * _radius - IconSize / 2;
 
-            var button = BuildButton(assetsRoot, items[i].Id, items[i].Label);
+            var button = BuildButton(assetsRoot, items[i].Id, items[i].Label, GaugeFor(items[i].Id));
             Canvas.SetLeft(button, x);
             Canvas.SetTop(button, y);
             _canvas.Children.Add(button);
@@ -126,9 +143,59 @@ internal sealed class RadialMenu : Window
             };
             button.BeginAnimation(OpacityProperty, fade);
         }
+
+        AddHeadline(centreX, centreY);
     }
 
-    private FrameworkElement BuildButton(string assetsRoot, string id, string label)
+    /// <summary>
+    /// The cat's state in words, inside the arc and above its head.
+    ///
+    /// The rings answer "which button helps"; this answers "what is wrong", and it is the only
+    /// place Rest can appear at all — sleeping is the cat's own decision, so it has no button
+    /// and therefore no ring to hang a number on.
+    /// </summary>
+    private void AddHeadline(double centreX, double centreY)
+    {
+        if (_mood is null) return;
+
+        var text = new TextBlock
+        {
+            Text = _mood.Headline,
+            Foreground = Brushes.White,
+            FontSize = 12.5,
+            TextAlignment = TextAlignment.Center,
+            Effect = new DropShadowEffect
+            {
+                // The wheel floats over whatever the user was doing, so the line needs to stay
+                // readable on a white document as well as on a dark one.
+                BlurRadius = 6,
+                ShadowDepth = 0,
+                Opacity = 1,
+                Color = Colors.Black,
+            },
+        };
+
+        text.Measure(new Size(Width, Height));
+        Canvas.SetLeft(text, centreX - text.DesiredSize.Width / 2);
+        Canvas.SetTop(text, centreY - text.DesiredSize.Height - 4);
+        _canvas.Children.Add(text);
+
+        var fade = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(180))
+        {
+            BeginTime = TimeSpan.FromMilliseconds(120),
+        };
+        text.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private NeedGauge? GaugeFor(string id)
+    {
+        if (_mood is null) return null;
+        foreach (var g in _mood.Gauges)
+            if (g.MenuId == id) return g;
+        return null;
+    }
+
+    private FrameworkElement BuildButton(string assetsRoot, string id, string label, NeedGauge? gauge)
     {
         var backing = new Ellipse
         {
@@ -148,6 +215,8 @@ internal sealed class RadialMenu : Window
 
         var grid = new Grid { Width = IconSize, Height = IconSize, Opacity = 0, Cursor = Cursors.Hand };
         grid.Children.Add(backing);
+
+        if (gauge is { } g) AddGauge(grid, g);
 
         var path = IoPath.Combine(assetsRoot, "ui", id + ".png");
         if (File.Exists(path))
@@ -179,7 +248,8 @@ internal sealed class RadialMenu : Window
             });
         }
 
-        grid.ToolTip = label;
+        // "Feed" alone does not say whether feeding would achieve anything; the number does.
+        grid.ToolTip = gauge is { } gg ? $"{label} — {gg.Phrase} ({gg.Level:F0}%)" : label;
         grid.MouseEnter += (_, _) => backing.Fill = new SolidColorBrush(Color.FromArgb(235, 58, 62, 78));
         grid.MouseLeave += (_, _) => backing.Fill = new SolidColorBrush(Color.FromArgb(210, 28, 30, 38));
         grid.MouseLeftButtonUp += (_, _) =>
@@ -190,6 +260,101 @@ internal sealed class RadialMenu : Window
         };
 
         return grid;
+    }
+
+    /// <summary>
+    /// Draws the need this button refills as a ring around it: a dim full track, and an arc
+    /// over it filling clockwise from 12 o'clock for the level.
+    ///
+    /// On the button rather than in a panel somewhere, because the meter and its remedy are
+    /// then the same object — the user reads "half empty" and their pointer is already on the
+    /// thing that fixes it.
+    /// </summary>
+    private void AddGauge(Grid grid, NeedGauge gauge)
+    {
+        const double Inset = 2.0;
+        double r = IconSize / 2 - Inset;
+        double fraction = Math.Clamp(gauge.Level / 100.0, 0, 1);
+
+        grid.Children.Add(new Ellipse
+        {
+            Width = r * 2,
+            Height = r * 2,
+            Stroke = new SolidColorBrush(Color.FromArgb(90, 255, 255, 255)),
+            StrokeThickness = 3,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+            VerticalAlignment = System.Windows.VerticalAlignment.Center,
+        });
+
+        // Colour tracks the level, not the kind: one glance sorts "fine" from "do something"
+        // without the user having to learn which colour means hunger.
+        var stroke = new SolidColorBrush(
+            fraction >= 0.6 ? Color.FromRgb(0x7B, 0xC9, 0x6F) :
+            fraction >= 0.3 ? Color.FromRgb(0xE8, 0xB0, 0x4B) :
+                              Color.FromRgb(0xE8, 0x66, 0x4B));
+
+        if (fraction >= 0.999)
+        {
+            // A 360-degree ArcSegment ends where it starts, which WPF renders as nothing at all.
+            grid.Children.Add(new Ellipse
+            {
+                Width = r * 2,
+                Height = r * 2,
+                Stroke = stroke,
+                StrokeThickness = 3,
+                HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+                VerticalAlignment = System.Windows.VerticalAlignment.Center,
+            });
+        }
+        else if (fraction > 0.005)
+        {
+            double c = IconSize / 2;
+            double angle = 2 * Math.PI * fraction;
+            var start = new Point(c, c - r);
+            var end = new Point(c + r * Math.Sin(angle), c - r * Math.Cos(angle));
+
+            var figure = new PathFigure { StartPoint = start, IsClosed = false };
+            figure.Segments.Add(new ArcSegment
+            {
+                Point = end,
+                Size = new Size(r, r),
+                SweepDirection = SweepDirection.Clockwise,
+                IsLargeArc = fraction > 0.5,
+            });
+
+            var geometry = new PathGeometry();
+            geometry.Figures.Add(figure);
+
+            grid.Children.Add(new System.Windows.Shapes.Path
+            {
+                Data = geometry,
+                Stroke = stroke,
+                StrokeThickness = 3,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+            });
+        }
+
+        if (!gauge.IsWanted || _mood?.TopWant?.MenuId != gauge.MenuId) return;
+
+        // The one thing the cat actually wants, pulsing. Exactly one button can ever have this:
+        // a wheel where everything demands attention says nothing.
+        var halo = new Ellipse
+        {
+            Width = IconSize + HaloPad * 2,
+            Height = IconSize + HaloPad * 2,
+            Stroke = stroke,
+            StrokeThickness = 2,
+            HorizontalAlignment = System.Windows.HorizontalAlignment.Center,
+            VerticalAlignment = System.Windows.VerticalAlignment.Center,
+        };
+        grid.Children.Add(halo);
+
+        halo.BeginAnimation(OpacityProperty, new DoubleAnimation(0.15, 0.95, TimeSpan.FromMilliseconds(750))
+        {
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever,
+        });
     }
 
     /// <summary>Positions the wheel above a point given in DIPs.</summary>
